@@ -113,7 +113,20 @@ impl Cursor {
 
     pub fn prev(&mut self) {
         assert!(self.valid());
-        panic!()
+        let mut candidate_node = {
+            self.current.as_ref().expect("valid").prev.read().expect("lock").clone()
+        };
+        while let Some(node) = candidate_node {
+            let history = node.history.read().expect("lock");
+            for (gen, _) in history.iter().rev() {
+                if *gen < self.gen {
+                    self.current = Some(node.clone());
+                    return;
+                }
+            }
+            candidate_node = node.prev.read().expect("lock").clone();
+        }
+        self.current = None;
     }
 
     pub fn key(&self) -> &[u8] {
