@@ -35,7 +35,7 @@ struct Node {
 
 pub struct Cursor {
     gen: Generation,
-    current: Option<Node>,
+    current: Option<Arc<Node>>,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
@@ -85,6 +85,55 @@ impl Index {
             current_gen: &self.gen,
             keymap: self.keymap.write().expect("lock"),
         }
+    }
+}
+
+impl Cursor {
+    pub fn valid(&self) -> bool {
+        self.current.is_some()
+    }
+
+    pub fn next(&mut self) {
+        assert!(self.valid());
+        let mut candidate_node = {
+            self.current.as_ref().expect("valid").next.read().expect("lock").clone()
+        };
+        while let Some(node) = candidate_node {
+            let history = node.history.read().expect("lock");
+            for (gen, _) in history.iter().rev() {
+                if *gen < self.gen {
+                    self.current = Some(node.clone());
+                    return;
+                }
+            }
+            candidate_node = node.next.read().expect("lock").clone();
+        }
+        self.current = None;
+    }
+
+    pub fn prev(&mut self) {
+        assert!(self.valid());
+        panic!()
+    }
+
+    pub fn key(&self) -> &[u8] {
+        panic!()
+    }
+
+    pub fn seek_first(&mut self) {
+        panic!()
+    }
+
+    pub fn seek_last(&mut self) {
+        panic!()
+    }
+
+    pub fn seek_key(&mut self, key: &[u8]) {
+        panic!()
+    }
+
+    pub fn seek_key_rev(&mut self, key: &[u8]) {
+        panic!()
     }
 }
 
