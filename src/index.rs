@@ -1,10 +1,11 @@
 pub use std::sync::Arc;
 pub use std::sync::{RwLock, RwLockWriteGuard};
 pub use std::sync::atomic::{AtomicUsize, Ordering};
-pub use std::collections::BTreeMap;
+pub use std::collections::btree_map::{BTreeMap, Entry};
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
-pub struct Key(pub String);
+#[derive(Clone)]
+pub struct Key(pub Vec<u8>);
 
 #[derive(Copy, Clone)]
 pub enum Value {
@@ -38,7 +39,7 @@ pub struct Cursor {
 pub struct Writer<'index> {
     next_gen: Generation,
     current_gen: &'index AtomicUsize,
-    lock_guard: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
+    keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
 }
 
 impl Index {
@@ -74,12 +75,45 @@ impl Index {
         }
     }
 
-    pub fn write(&self, gen: Generation) -> Writer {
+    pub fn writer(&self, gen: Generation) -> Writer {
         assert!(gen >= Generation(self.gen.load(Ordering::SeqCst)));
         Writer {
             next_gen: gen,
             current_gen: &self.gen,
-            lock_guard: self.keymap.write().expect("lock"),
+            keymap: self.keymap.write().expect("lock"),
         }
+    }
+}
+
+impl<'index> Writer<'index> {
+    pub fn write(&mut self, key: Key, addr: Address) {
+        if let Some(node) = self.keymap.get_mut(&key) {
+            // key already exists
+            let mut history = node.history.write().expect("lock");
+            history.push((self.next_gen, Value::Written(addr)));
+        } if let Some(next) = self.keymap.range(key.clone()..).next() {
+            // next key exists
+            panic!()
+        } else if let Some(prev) = self.keymap.range(..=key.clone()).next() {
+            // prev key exists
+            panic!()
+        } else {
+            // no key exists
+            assert!(self.keymap.is_empty());
+            panic!()
+        }
+    }
+
+    pub fn delete(&mut self, key: Key, addr: Address) {
+    }
+
+    pub fn delete_range(&mut self, start: Key, end: Key, addr: Address) {
+    }
+}
+
+impl<'index> Drop for Writer<'index> {
+    fn drop(&mut self) {
+        let next_gen = self.next_gen.0.checked_add(1).expect("overflow");
+        self.current_gen.store(next_gen, Ordering::SeqCst);
     }
 }
