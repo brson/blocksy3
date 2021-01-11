@@ -26,7 +26,7 @@ pub struct Index {
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
-pub struct Node {
+struct Node {
     key: Key,
     prev: RwLock<Option<Arc<Node>>>,
     next: RwLock<Option<Arc<Node>>>,
