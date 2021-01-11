@@ -129,8 +129,9 @@ impl Cursor {
         self.current = None;
     }
 
-    pub fn key(&self) -> &[u8] {
-        panic!()
+    pub fn key(&self) -> Key {
+        assert!(self.valid());
+        self.current.as_ref().expect("valid").key.clone()
     }
 
     pub fn seek_first(&mut self) {
