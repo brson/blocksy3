@@ -26,7 +26,9 @@ pub struct Index {
 }
 
 pub struct Node {
-    prev_next: RwLock<(Option<Arc<Node>>, Option<Arc<Node>>)>,
+    key: Key,
+    prev: RwLock<Option<Arc<Node>>>,
+    next: RwLock<Option<Arc<Node>>>,
     history: RwLock<Vec<(Generation, Value)>>,
 }
 
@@ -87,27 +89,68 @@ impl Index {
 
 impl<'index> Writer<'index> {
     pub fn write(&mut self, key: Key, addr: Address) {
-        if let Some(node) = self.keymap.get_mut(&key) {
-            // key already exists
-            let mut history = node.history.write().expect("lock");
-            history.push((self.next_gen, Value::Written(addr)));
-        } if let Some(next) = self.keymap.range(key.clone()..).next() {
-            // next key exists
-            panic!()
-        } else if let Some(prev) = self.keymap.range(..=key.clone()).next() {
-            // prev key exists
-            panic!()
-        } else {
-            // no key exists
-            assert!(self.keymap.is_empty());
-            panic!()
-        }
+        self.update_value(key, Value::Written(addr))
     }
 
     pub fn delete(&mut self, key: Key, addr: Address) {
+        self.update_value(key, Value::Deleted(addr))
     }
 
     pub fn delete_range(&mut self, start: Key, end: Key, addr: Address) {
+        panic!()
+    }
+
+    fn update_value(&mut  self, key: Key, value: Value) {
+        let new_node;
+        if let Some(node) = self.keymap.get_mut(&key) {
+            // key already exists
+            let mut history = node.history.write().expect("lock");
+            history.push((self.next_gen, value));
+            new_node = None;
+        } else if let Some((_, next)) = self.keymap.range(key.clone()..).next() {
+            // next key exists
+            let mut next_prev = next.prev.write().expect("lock");
+            let new = Arc::new(Node {
+                key: key.clone(),
+                prev: RwLock::new(next_prev.clone()),
+                next: RwLock::new(Some(next.clone())),
+                history: RwLock::new(vec![(self.next_gen, value)]),
+            });
+            if let Some(next_prev) = next_prev.as_ref() {
+                let mut next_prev_next = next_prev.next.write().expect("lock");
+                *next_prev_next = Some(new.clone());
+            }
+            *next_prev = Some(new.clone());
+            new_node = Some(new);
+        } else if let Some((_, prev)) = self.keymap.range(..=key.clone()).next() {
+            // prev key exists
+            let mut prev_next = prev.next.write().expect("lock");
+            let new = Arc::new(Node {
+                key: key.clone(),
+                prev: RwLock::new(Some(prev.clone())),
+                next: RwLock::new(prev_next.clone()),
+                history: RwLock::new(vec![(self.next_gen, value)]),
+            });
+            if let Some(prev_next) = prev_next.as_ref() {
+                let mut prev_next_prev = prev_next.prev.write().expect("lock");
+                *prev_next_prev = Some(new.clone());
+            }
+            *prev_next = Some(new.clone());
+            new_node = Some(new);
+        } else {
+            // no key exists
+            assert!(self.keymap.is_empty());
+            let new = Arc::new(Node {
+                key: key.clone(),
+                prev: RwLock::new(None),
+                next: RwLock::new(None),
+                history: RwLock::new(vec![(self.next_gen, value)]),
+            });
+            new_node = Some(new);
+        }
+        if let Some(new_node) = new_node {
+            self.keymap.insert(key, new_node);
+        }
     }
 }
 
