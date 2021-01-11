@@ -5,7 +5,7 @@ pub use std::collections::btree_map::{BTreeMap, Entry};
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Clone)]
-pub struct Key(pub Vec<u8>);
+pub struct Key(pub Arc<Vec<u8>>);
 
 #[derive(Copy, Clone)]
 pub enum Value {
@@ -122,7 +122,7 @@ impl<'index> Writer<'index> {
             }
             *next_prev = Some(new.clone());
             new_node = Some(new);
-        } else if let Some((_, prev)) = self.keymap.range(..=key.clone()).next() {
+        } else if let Some((_, prev)) = self.keymap.range(..=key.clone()).rev().next() {
             // prev key exists
             let mut prev_next = prev.next.write().expect("lock");
             let new = Arc::new(Node {
