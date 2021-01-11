@@ -88,6 +88,18 @@ impl Index {
     }
 }
 
+impl Drop for Index {
+    fn drop(&mut self) {
+        let mut keymap = self.keymap.write().expect("lock");
+        for (_, mut node) in keymap.iter_mut() {
+            let mut prev = node.prev.write().expect("lock");
+            *prev = None;
+            let mut next = node.next.write().expect("lock");
+            *next = None;
+        }
+    }
+}
+
 impl Cursor {
     pub fn valid(&self) -> bool {
         self.current.is_some()
@@ -135,19 +147,23 @@ impl Cursor {
     }
 
     pub fn seek_first(&mut self) {
-        panic!()
+        let keymap = self.keymap.read().expect("lock");
+        self.current = keymap.iter().map(|(_, node)| node.clone()).next();
     }
 
     pub fn seek_last(&mut self) {
-        panic!()
+        let keymap = self.keymap.read().expect("lock");
+        self.current = keymap.iter().rev().map(|(_, node)| node.clone()).next();
     }
 
-    pub fn seek_key(&mut self, key: &[u8]) {
-        panic!()
+    pub fn seek_key(&mut self, key: Key) {
+        let keymap = self.keymap.read().expect("lock");
+        self.current = keymap.range(key..).map(|(_, node)| node.clone()).next();
     }
 
-    pub fn seek_key_rev(&mut self, key: &[u8]) {
-        panic!()
+    pub fn seek_key_rev(&mut self, key: Key) {
+        let keymap = self.keymap.read().expect("lock");
+        self.current = keymap.range(..=key).rev().map(|(_, node)| node.clone()).next();
     }
 }
 
