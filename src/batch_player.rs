@@ -18,10 +18,12 @@ enum SimpleCommand {
     },
     Delete {
         key: Key,
+        address: Address,
     },
     DeleteRange {
         start_key: Key,
         end_key: Key,
+        address: Address,
     },
     PushSavePoint,
     PopSavePoint,
@@ -57,28 +59,50 @@ impl BatchPlayer {
                 });
             },
             Command::Write { batch, key, .. } => {
-                let mut batch_data = batches.get(batch).expect("batch");
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::Write {
+                    key: key.clone(),
+                    address,
+                });
             },
             Command::Delete { batch, key } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::Delete {
+                    key: key.clone(),
+                    address,
+                });
             },
             Command::DeleteRange { batch, start_key, end_key } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::DeleteRange {
+                    start_key: start_key.clone(),
+                    end_key: end_key.clone(),
+                    address,
+                });
             },
             Command::PushSavePoint { batch } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::PushSavePoint);
             },
             Command::PopSavePoint { batch } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::PopSavePoint);
             },
             Command::RollbackSavePoint { batch } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::RollbackSavePoint);
             },
             Command::ReadyCommit { batch, batch_commit } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::ReadyCommit {
+                    batch_commit: *batch_commit,
+                });
             },
             Command::AbortCommit { batch, batch_commit } => {
-                panic!()
+                let mut batch_data = batches.get_mut(batch).expect("batch");
+                batch_data.commands.push(SimpleCommand::AbortCommit {
+                    batch_commit: *batch_commit,
+                });
             },
             Command::Close { batch } => {
                 assert!(batches.contains_key(batch));
