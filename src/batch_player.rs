@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 use crate::command::{Command, Batch, BatchCommit, Key};
-use crate::log::Address;
+
+#[derive(Eq, PartialEq)]
+#[derive(Copy, Clone)]
+pub struct Address(usize);
 
 pub struct BatchPlayer {
     batches: Mutex<BTreeMap<Batch, BatchData>>,
@@ -124,46 +127,58 @@ impl BatchPlayer {
     fn replay(&self, batch: Batch, batch_commit: BatchCommit) -> impl Iterator<Item = IndexOp> {
         let mut batches = self.batches.lock().expect("lock");
         let batch_data = batches.get(&batch).expect("batch");
-        let mut op_vec = vec![];
-        for (i, cmd) in batch_data.commands.iter().enumerate() {
+        let mut ops = vec![];
+        let mut save_point_indexes = vec![];
+        for cmd in &batch_data.commands {
             match cmd {
                 SimpleCommand::Write { key, address } => {
-                    op_vec.push(IndexOp::Write {
+                    ops.push(IndexOp::Write {
                         key: key.clone(),
                         address: *address,
                     });
                 },
                 SimpleCommand::Delete { key, address } => {
-                    op_vec.push(IndexOp::Delete {
+                    ops.push(IndexOp::Delete {
                         key: key.clone(),
                         address: *address,
                     });
                 },
                 SimpleCommand::DeleteRange { start_key, end_key, address } => {
-                    op_vec.push(IndexOp::DeleteRange {
+                    ops.push(IndexOp::DeleteRange {
                         start_key: start_key.clone(),
                         end_key: end_key.clone(),
                         address: *address,
                     });
                 },
                 SimpleCommand::PushSavePoint => {
-                    panic!()
+                    save_point_indexes.push(ops.len());
                 },
                 SimpleCommand::PopSavePoint => {
-                    panic!()
+                    save_point_indexes.pop();
                 },
                 SimpleCommand::RollbackSavePoint => {
-                    panic!()
+                    if let Some(save_point) = save_point_indexes.pop() {
+                        assert!(save_point <= ops.len());
+                        ops.truncate(save_point);
+                    } else {
+                        panic!("rollback without save point");
+                    }
                 },
-                SimpleCommand::ReadyCommit { batch_commit } => {
-                    panic!()
+                SimpleCommand::ReadyCommit { batch_commit: bc } => {
+                    if batch_commit == *bc {
+                        return ops.into_iter();
+                    }
                 },
-                SimpleCommand::AbortCommit { batch_commit }=> {
-                    panic!()
+                SimpleCommand::AbortCommit { batch_commit: bc }=> {
+                    if batch_commit == *bc {
+                        ops.clear();
+                        return ops.into_iter();
+                    }
                 },                    
             }
         }
         panic!("uncommitted/unaborted batch replay");
-        std::iter::empty()
+        ops.clear();
+        ops.into_iter()
     }
 }
