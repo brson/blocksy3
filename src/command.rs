@@ -12,7 +12,7 @@ pub struct Key(pub Arc<Vec<u8>>);
 pub struct Value(pub Arc<Vec<u8>>);
 
 #[derive(Serialize, Deserialize)]
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
 pub struct Batch(usize);
 
@@ -23,6 +23,9 @@ pub struct BatchCommit(usize);
 
 #[derive(Serialize, Deserialize)]
 pub enum Command {
+    Open {
+        batch: Batch,
+    },
     Write {
         batch: Batch,
         key: Key,
@@ -47,6 +50,10 @@ pub enum Command {
         batch: Batch,
     },
     ReadyCommit {
+        batch: Batch,
+        batch_commit: BatchCommit,
+    },
+    AbortCommit {
         batch: Batch,
         batch_commit: BatchCommit,
     },
