@@ -4,7 +4,7 @@ use crate::command::{Command, Batch, BatchCommit, Key};
 
 #[derive(Eq, PartialEq)]
 #[derive(Copy, Clone)]
-pub struct Address(usize);
+pub struct Address(pub usize);
 
 pub struct BatchPlayer {
     batches: Mutex<BTreeMap<Batch, BatchData>>,
@@ -62,7 +62,7 @@ impl BatchPlayer {
         }
     }
 
-    fn record(&self, cmd: &Command, address: Address) {
+    pub fn record(&self, cmd: &Command, address: Address) {
         let mut batches = self.batches.lock().expect("lock");
         match cmd {
             Command::Open { batch } => {
@@ -124,7 +124,7 @@ impl BatchPlayer {
         }
     }
 
-    fn replay(&self, batch: Batch, batch_commit: BatchCommit) -> impl Iterator<Item = IndexOp> {
+    pub fn replay(&self, batch: Batch, batch_commit: BatchCommit) -> impl Iterator<Item = IndexOp> {
         let mut batches = self.batches.lock().expect("lock");
         let batch_data = batches.get(&batch).expect("batch");
         let mut ops = vec![];

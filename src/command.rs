@@ -14,12 +14,12 @@ pub struct Value(pub Arc<Vec<u8>>);
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
-pub struct Batch(usize);
+pub struct Batch(pub usize);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq)]
 #[derive(Copy, Clone)]
-pub struct BatchCommit(usize);
+pub struct BatchCommit(pub usize);
 
 #[derive(Serialize, Deserialize)]
 pub enum Command {
