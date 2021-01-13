@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::types::{View, Batch, BatchCommit, Commit};
+use crate::types::{View, Batch, BatchCommit, Commit, Key, Value};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
@@ -27,7 +27,12 @@ pub struct ViewReader {
 
 impl Tree {
     pub fn batch(&self, batch: Batch) -> BatchWriter {
-        panic!()
+        BatchWriter {
+            batch,
+            log: self.log.clone(),
+            batch_player: self.batch_player.clone(),
+            index: self.index.clone(),
+        }
     }
 
     pub fn view(&self, view: View) -> ViewReader {
@@ -36,12 +41,68 @@ impl Tree {
 }
 
 impl BatchWriter {
-    pub async fn ready_commit(&self, batch_commit: BatchCommit) -> Result<()> {
-        let cmd = Command::ReadyCommit {
+    pub async fn open(&self) -> Result<()> {
+        Ok(self.append_record(&Command::Open {
             batch: self.batch,
-            batch_commit: batch_commit,
-        };
+        }).await?)
+    }
 
+    pub async fn write(&self, key: Key, value: Value) -> Result<()> {
+        Ok(self.append_record(&Command::Write {
+            batch: self.batch,
+            key,
+            value,
+        }).await?)
+    }
+
+    pub async fn delete(&self, key: Key) -> Result<()> {
+        Ok(self.append_record(&Command::Delete {
+            batch: self.batch,
+            key,
+        }).await?)
+    }
+
+    pub async fn delete_range(&self, start_key: Key, end_key: Key) -> Result<()> {
+        Ok(self.append_record(&Command::DeleteRange {
+            batch: self.batch,
+            start_key,
+            end_key,
+        }).await?)
+    }
+
+    pub async fn push_save_point(&self) -> Result<()> {
+        Ok(self.append_record(&Command::PushSavePoint {
+            batch: self.batch,
+        }).await?)
+    }
+
+    pub async fn pop_save_point(&self) -> Result<()> {
+        Ok(self.append_record(&Command::PopSavePoint {
+            batch: self.batch,
+        }).await?)
+    }
+
+    pub async fn rollback_save_point(&self) -> Result<()> {
+        Ok(self.append_record(&Command::RollbackSavePoint {
+            batch: self.batch,
+        }).await?)
+    }
+
+    pub async fn ready_commit(&self, batch_commit: BatchCommit) -> Result<()> {
+        Ok(self.append_record(&Command::ReadyCommit {
+            batch: self.batch,
+            batch_commit,
+        }).await?)
+    }
+
+    pub async fn abort_commit(&self, batch_commit: BatchCommit) -> Result<()> {
+        Ok(self.append_record(&Command::AbortCommit {
+            batch: self.batch,
+            batch_commit,
+        }).await?)
+    }
+
+    async fn append_record(&self, cmd: &Command) -> Result<()> {
         let address = self.log.append(&cmd).await?;
         self.batch_player.record(&cmd, address);
         Ok(())
@@ -64,5 +125,11 @@ impl BatchWriter {
             }
         }
         Ok(())
+    }
+
+    pub async fn close(self) -> Result<()> {
+        Ok(self.append_record(&Command::Close {
+            batch: self.batch,
+        }).await?)
     }
 }
