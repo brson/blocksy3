@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+mod types;
 mod batch_player;
 mod command;
 mod db;

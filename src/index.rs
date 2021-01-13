@@ -3,10 +3,7 @@ pub use std::sync::{RwLock, RwLockWriteGuard};
 pub use std::sync::atomic::{AtomicUsize, Ordering};
 pub use std::collections::btree_map::{BTreeMap, Entry};
 pub use std::ops::RangeBounds;
-
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Clone)]
-pub struct Key(pub Arc<Vec<u8>>);
+use crate::types::{Key, Address};
 
 #[derive(Copy, Clone)]
 pub enum Value {
@@ -17,9 +14,6 @@ pub enum Value {
 #[derive(Copy, Clone)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 pub struct Generation(pub usize);
-
-#[derive(Copy, Clone)]
-pub struct Address(pub usize);
 
 pub struct Index {
     gen: AtomicUsize,

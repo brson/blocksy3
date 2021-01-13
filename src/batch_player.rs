@@ -1,10 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
-use crate::command::{Command, Batch, BatchCommit, Key};
-
-#[derive(Eq, PartialEq)]
-#[derive(Copy, Clone)]
-pub struct Address(pub usize);
+use crate::command::Command;
+use crate::types::{Address, Key, Batch, BatchCommit};
 
 pub struct BatchPlayer {
     batches: Mutex<BTreeMap<Batch, BatchData>>,

@@ -3,11 +3,8 @@ use anyhow::Result;
 use std::future::Future;
 use futures::Stream;
 
+use crate::types::Address;
 use crate::command::Command;
-
-#[derive(Eq, PartialEq)]
-#[derive(Copy, Clone)]
-pub struct Address(pub usize);
 
 pub struct LogFile<Cmd> where Cmd: Serialize + for <'de> Deserialize<'de> {
     append: Box<dyn Fn(&Cmd) -> Box<dyn Future<Output = Result<Address>>> + Send + Sync>,

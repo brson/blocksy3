@@ -1,25 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
-
-#[derive(Serialize, Deserialize)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Clone)]
-pub struct Key(pub Arc<Vec<u8>>);
-
-#[derive(Serialize, Deserialize)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Clone)]
-pub struct Value(pub Arc<Vec<u8>>);
-
-#[derive(Serialize, Deserialize)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Copy, Clone)]
-pub struct Batch(pub usize);
-
-#[derive(Serialize, Deserialize)]
-#[derive(Eq, PartialEq)]
-#[derive(Copy, Clone)]
-pub struct BatchCommit(pub usize);
+use crate::types::{Key, Value, Batch, BatchCommit};
 
 #[derive(Serialize, Deserialize)]
 pub enum Command {

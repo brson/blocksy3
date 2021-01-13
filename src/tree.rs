@@ -1,21 +1,10 @@
 use std::sync::Arc;
-use crate::command as cmd;
+use crate::types::{View, Batch, BatchCommit};
+use crate::command::Command;
 use crate::log::Log;
-use crate::batch_player::{self as bp, BatchPlayer};
+use crate::batch_player::BatchPlayer;
 use crate::index::Index;
 use anyhow::Result;
-
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Copy, Clone)]
-pub struct Batch(pub usize);
-
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Copy, Clone)]
-pub struct BatchCommit(pub usize);
-
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Copy, Clone)]
-pub struct View(pub usize);
 
 pub struct Tree {
     log: Arc<Log>,
@@ -48,14 +37,14 @@ impl Tree {
 
 impl BatchWriter {
     pub async fn commit(&self, batch_commit: BatchCommit) -> Result<()> {
-        let cmd = cmd::Command::ReadyCommit {
-            batch: cmd::Batch(self.batch.0),
-            batch_commit: cmd::BatchCommit(batch_commit.0),
+        let cmd = Command::ReadyCommit {
+            batch: self.batch,
+            batch_commit: batch_commit,
         };
 
         let address = self.log.append(&cmd).await?;
-        self.batch_player.record(&cmd, bp::Address(address.0));
-        let index_ops = self.batch_player.replay(cmd::Batch(self.batch.0), cmd::BatchCommit(batch_commit.0));
+        self.batch_player.record(&cmd, address);
+        let index_ops = self.batch_player.replay(self.batch, batch_commit);
         panic!()
     }
 }
