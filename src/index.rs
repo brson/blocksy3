@@ -3,7 +3,7 @@ pub use std::sync::{RwLock, RwLockWriteGuard};
 pub use std::sync::atomic::{AtomicUsize, Ordering};
 pub use std::collections::btree_map::{BTreeMap, Entry};
 pub use std::ops::RangeBounds;
-use crate::types::{Key, Address};
+use crate::types::{Key, Address, Commit};
 
 #[derive(Copy, Clone)]
 pub enum Value {
@@ -11,12 +11,8 @@ pub enum Value {
     Deleted(Address),
 }
 
-#[derive(Copy, Clone)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-pub struct Generation(pub usize);
-
 pub struct Index {
-    gen: AtomicUsize,
+    commit: AtomicUsize,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
@@ -24,36 +20,36 @@ struct Node {
     key: Key,
     prev: RwLock<Option<Arc<Node>>>,
     next: RwLock<Option<Arc<Node>>>,
-    history: RwLock<Vec<(Generation, Value)>>,
+    history: RwLock<Vec<(Commit, Value)>>,
 }
 
 pub struct Cursor {
-    gen: Generation,
+    commit: Commit,
     current: Option<Arc<Node>>,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
 pub struct Writer<'index> {
-    next_gen: Generation,
-    current_gen: &'index AtomicUsize,
+    next_commit: Commit,
+    current_commit: &'index AtomicUsize,
     keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
 }
 
 impl Index {
     pub fn new() -> Index {
         Index {
-            gen: AtomicUsize::new(0),
+            commit: AtomicUsize::new(0),
             keymap: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
-    pub fn read(&self, gen: Generation, key: &Key) -> Option<Value> {
-        assert!(gen <= Generation(self.gen.load(Ordering::SeqCst)));
+    pub fn read(&self, commit: Commit, key: &Key) -> Option<Value> {
+        assert!(commit <= Commit(self.commit.load(Ordering::SeqCst)));
         let map = self.keymap.read().expect("lock");
         if let Some(node) = map.get(key) {
             let history = node.history.read().expect("lock");
-            for (h_gen, value) in history.iter().rev() {
-                if *h_gen < gen {
+            for (h_commit, value) in history.iter().rev() {
+                if *h_commit < commit {
                     return Some(*value);
                 }
             }
@@ -63,20 +59,20 @@ impl Index {
         }
     }
 
-    pub fn cursor(&self, gen: Generation) -> Cursor {
-        assert!(gen <= Generation(self.gen.load(Ordering::SeqCst)));
+    pub fn cursor(&self, commit: Commit) -> Cursor {
+        assert!(commit <= Commit(self.commit.load(Ordering::SeqCst)));
         Cursor {
-            gen,
+            commit,
             current: None,
             keymap: self.keymap.clone(),
         }
     }
 
-    pub fn writer(&self, gen: Generation) -> Writer {
-        assert!(gen >= Generation(self.gen.load(Ordering::SeqCst)));
+    pub fn writer(&self, commit: Commit) -> Writer {
+        assert!(commit >= Commit(self.commit.load(Ordering::SeqCst)));
         Writer {
-            next_gen: gen,
-            current_gen: &self.gen,
+            next_commit: commit,
+            current_commit: &self.commit,
             keymap: self.keymap.write().expect("lock"),
         }
     }
@@ -106,8 +102,8 @@ impl Cursor {
         };
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
-            for (gen, _) in history.iter().rev() {
-                if *gen < self.gen {
+            for (commit, _) in history.iter().rev() {
+                if *commit < self.commit {
                     self.current = Some(node.clone());
                     return;
                 }
@@ -124,8 +120,8 @@ impl Cursor {
         };
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
-            for (gen, _) in history.iter().rev() {
-                if *gen < self.gen {
+            for (commit, _) in history.iter().rev() {
+                if *commit < self.commit {
                     self.current = Some(node.clone());
                     return;
                 }
@@ -175,7 +171,7 @@ impl<'index> Writer<'index> {
     {
         for (_, node) in self.keymap.range_mut(range) {
             let mut history = node.history.write().expect("lock");
-            history.push((self.next_gen, Value::Deleted(addr)));
+            history.push((self.next_commit, Value::Deleted(addr)));
         }
     }
 
@@ -184,7 +180,7 @@ impl<'index> Writer<'index> {
         if let Some(node) = self.keymap.get_mut(&key) {
             // key already exists
             let mut history = node.history.write().expect("lock");
-            history.push((self.next_gen, value));
+            history.push((self.next_commit, value));
             new_node = None;
         } else if let Some((_, next)) = self.keymap.range(key.clone()..).next() {
             // next key exists
@@ -193,7 +189,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(next_prev.clone()),
                 next: RwLock::new(Some(next.clone())),
-                history: RwLock::new(vec![(self.next_gen, value)]),
+                history: RwLock::new(vec![(self.next_commit, value)]),
             });
             if let Some(next_prev) = next_prev.as_ref() {
                 let mut next_prev_next = next_prev.next.write().expect("lock");
@@ -208,7 +204,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(Some(prev.clone())),
                 next: RwLock::new(prev_next.clone()),
-                history: RwLock::new(vec![(self.next_gen, value)]),
+                history: RwLock::new(vec![(self.next_commit, value)]),
             });
             if let Some(prev_next) = prev_next.as_ref() {
                 let mut prev_next_prev = prev_next.prev.write().expect("lock");
@@ -223,7 +219,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(None),
                 next: RwLock::new(None),
-                history: RwLock::new(vec![(self.next_gen, value)]),
+                history: RwLock::new(vec![(self.next_commit, value)]),
             });
             new_node = Some(new);
         }
@@ -235,7 +231,7 @@ impl<'index> Writer<'index> {
 
 impl<'index> Drop for Writer<'index> {
     fn drop(&mut self) {
-        let next_gen = self.next_gen.0.checked_add(1).expect("overflow");
-        self.current_gen.store(next_gen, Ordering::SeqCst);
+        let next_commit = self.next_commit.0.checked_add(1).expect("overflow");
+        self.current_commit.store(next_commit, Ordering::SeqCst);
     }
 }
