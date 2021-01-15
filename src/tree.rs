@@ -108,7 +108,7 @@ impl BatchWriter {
         Ok(())
     }
 
-    pub fn commit(&self, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
+    pub fn commit(&self, batch_commit: BatchCommit, commit: Commit) {
         let index_ops = self.batch_player.replay(self.batch, batch_commit);
         let mut writer = self.index.writer(commit);
         for op in index_ops {
@@ -124,7 +124,6 @@ impl BatchWriter {
                 },
             }
         }
-        Ok(())
     }
 
     pub async fn close(self) -> Result<()> {

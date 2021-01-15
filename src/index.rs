@@ -12,7 +12,7 @@ pub enum Value {
 }
 
 pub struct Index {
-    commit: AtomicUsize,
+    maybe_next_commit: AtomicUsize,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
@@ -24,32 +24,32 @@ struct Node {
 }
 
 pub struct Cursor {
-    commit: Commit,
+    commit_limit: Commit,
     current: Option<Arc<Node>>,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
 pub struct Writer<'index> {
-    next_commit: Commit,
-    current_commit: &'index AtomicUsize,
+    commit: Commit,
+    maybe_next_commit: &'index AtomicUsize,
     keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
 }
 
 impl Index {
     pub fn new() -> Index {
         Index {
-            commit: AtomicUsize::new(0),
+            maybe_next_commit: AtomicUsize::new(0),
             keymap: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
-    pub fn read(&self, commit: Commit, key: &Key) -> Option<Value> {
-        assert!(commit <= Commit(self.commit.load(Ordering::SeqCst)));
+    pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Value> {
+        assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         let map = self.keymap.read().expect("lock");
         if let Some(node) = map.get(key) {
             let history = node.history.read().expect("lock");
             for (h_commit, value) in history.iter().rev() {
-                if *h_commit < commit {
+                if *h_commit < commit_limit {
                     return Some(*value);
                 }
             }
@@ -59,20 +59,20 @@ impl Index {
         }
     }
 
-    pub fn cursor(&self, commit: Commit) -> Cursor {
-        assert!(commit <= Commit(self.commit.load(Ordering::SeqCst)));
+    pub fn cursor(&self, commit_limit: Commit) -> Cursor {
+        assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         Cursor {
-            commit,
+            commit_limit,
             current: None,
             keymap: self.keymap.clone(),
         }
     }
 
     pub fn writer(&self, commit: Commit) -> Writer {
-        assert!(commit >= Commit(self.commit.load(Ordering::SeqCst)));
+        assert!(commit >= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         Writer {
-            next_commit: commit,
-            current_commit: &self.commit,
+            commit: commit,
+            maybe_next_commit: &self.maybe_next_commit,
             keymap: self.keymap.write().expect("lock"),
         }
     }
@@ -103,7 +103,7 @@ impl Cursor {
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
             for (commit, _) in history.iter().rev() {
-                if *commit < self.commit {
+                if *commit < self.commit_limit {
                     self.current = Some(node.clone());
                     return;
                 }
@@ -121,7 +121,7 @@ impl Cursor {
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
             for (commit, _) in history.iter().rev() {
-                if *commit < self.commit {
+                if *commit < self.commit_limit {
                     self.current = Some(node.clone());
                     return;
                 }
@@ -171,7 +171,7 @@ impl<'index> Writer<'index> {
     {
         for (_, node) in self.keymap.range_mut(range) {
             let mut history = node.history.write().expect("lock");
-            history.push((self.next_commit, Value::Deleted(addr)));
+            history.push((self.commit, Value::Deleted(addr)));
         }
     }
 
@@ -180,7 +180,7 @@ impl<'index> Writer<'index> {
         if let Some(node) = self.keymap.get_mut(&key) {
             // key already exists
             let mut history = node.history.write().expect("lock");
-            history.push((self.next_commit, value));
+            history.push((self.commit, value));
             new_node = None;
         } else if let Some((_, next)) = self.keymap.range(key.clone()..).next() {
             // next key exists
@@ -189,7 +189,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(next_prev.clone()),
                 next: RwLock::new(Some(next.clone())),
-                history: RwLock::new(vec![(self.next_commit, value)]),
+                history: RwLock::new(vec![(self.commit, value)]),
             });
             if let Some(next_prev) = next_prev.as_ref() {
                 let mut next_prev_next = next_prev.next.write().expect("lock");
@@ -204,7 +204,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(Some(prev.clone())),
                 next: RwLock::new(prev_next.clone()),
-                history: RwLock::new(vec![(self.next_commit, value)]),
+                history: RwLock::new(vec![(self.commit, value)]),
             });
             if let Some(prev_next) = prev_next.as_ref() {
                 let mut prev_next_prev = prev_next.prev.write().expect("lock");
@@ -219,7 +219,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(None),
                 next: RwLock::new(None),
-                history: RwLock::new(vec![(self.next_commit, value)]),
+                history: RwLock::new(vec![(self.commit, value)]),
             });
             new_node = Some(new);
         }
@@ -231,7 +231,7 @@ impl<'index> Writer<'index> {
 
 impl<'index> Drop for Writer<'index> {
     fn drop(&mut self) {
-        let next_commit = self.next_commit.0.checked_add(1).expect("overflow");
-        self.current_commit.store(next_commit, Ordering::SeqCst);
+        let next_commit = self.commit.0.checked_add(1).expect("overflow");
+        self.maybe_next_commit.store(next_commit, Ordering::SeqCst);
     }
 }

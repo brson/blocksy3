@@ -32,4 +32,3 @@ pub struct View(pub usize);
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
 pub struct Commit(pub usize);
-
