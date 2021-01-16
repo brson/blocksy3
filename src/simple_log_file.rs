@@ -36,14 +36,14 @@ struct State {
     fs_thread: Arc<FsThread>
 }
 
-fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> impl Future<Output = Result<Address>> + Unpin
+async fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> Result<Address>
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
-    std::future::pending()
+    Ok(panic!())
 }
 
-fn read_at<Cmd>(state: Arc<State>, addr: Address) -> impl Future<Output = Result<(Cmd, Option<Address>)>> + Unpin
+async fn read_at<Cmd>(state: Arc<State>, addr: Address) -> Result<(Cmd, Option<Address>)>
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
-    std::future::pending()
+    Ok(panic!())
 }
