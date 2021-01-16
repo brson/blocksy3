@@ -18,6 +18,11 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + 'static
             Box::new(append(state1.clone(), cmd))
         })
     };
+    let read_at_impl: Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync> = {
+        Box::new(|addr| {
+            Box::new(read_at(state2.clone(), addr))
+        })
+    };
     panic!();
 }
 
@@ -27,13 +32,13 @@ struct State {
 }
 
 fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> impl Future<Output = Result<Address>> + Unpin
-where Cmd: Serialize + for <'de> Deserialize<'de> + 'static
+where Cmd: Serialize + for <'de> Deserialize<'de>
 {
     std::future::pending()
 }
 
-async fn read_at<Cmd>(state: &State, addr: Address) -> Result<(Cmd, Option<Address>)>
+fn read_at<Cmd>(state: Arc<State>, addr: Address) -> impl Future<Output = Result<(Cmd, Option<Address>)>> + Unpin
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
-    Ok(panic!())
+    std::future::pending()
 }
