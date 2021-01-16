@@ -3,10 +3,11 @@ use serde::{Serialize, Deserialize};
 use std::future::Future;
 use crate::types::Address;
 use anyhow::Result;
+use futures::future::BoxFuture;
 
 pub struct LogFile<Cmd> where Cmd: Serialize + for <'de> Deserialize<'de> {
-    pub append: Box<dyn Fn(Cmd) -> Box<dyn Future<Output = Result<Address>> + Unpin + 'static> + Send + Sync>,
-    pub read_at: Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync>,
+    pub append: Box<dyn Fn(Cmd) -> BoxFuture<'static, Result<Address>> + Send + Sync>,
+    pub read_at: Box<dyn Fn(Address) -> BoxFuture<'static, Result<(Cmd, Option<Address>)>> + Send + Sync>,
 }
 
 impl<Cmd> LogFile<Cmd>

@@ -6,21 +6,22 @@ use crate::log_file::LogFile;
 use crate::fs_thread::FsThread;
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+use futures::future::BoxFuture;
 
 fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
-where Cmd: Serialize + for <'de> Deserialize<'de> + 'static
+where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
     let state1 = Arc::new(State { path, fs_thread });
     let state2 = state1.clone();
 
-    let append_impl: Box<dyn Fn(Cmd) -> Box<dyn Future<Output = Result<Address>> + Unpin + 'static> + Send + Sync> = {
+    let append_impl: Box<dyn Fn(Cmd) -> BoxFuture<'static, Result<Address>> + Send + Sync> = {
         Box::new(move |cmd| {
-            Box::new(append(state1.clone(), cmd))
+            Box::pin(append(state1.clone(), cmd))
         })
     };
-    let read_at_impl: Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync> = {
+    let read_at_impl: Box<dyn Fn(Address) -> BoxFuture<'static, Result<(Cmd, Option<Address>)>> + Send + Sync> = {
         Box::new(move |addr| {
-            Box::new(read_at(state2.clone(), addr))
+            Box::pin(read_at(state2.clone(), addr))
         })
     };
 
