@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::tree::{self, Tree};
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, anyhow};
 use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 
 pub struct Db {
@@ -32,17 +32,35 @@ pub struct BatchWriter {
     commit_lock: Arc<Mutex<()>>,
 }
 
-impl BatchWriter {
-    pub fn new() -> Result<()> {
-        panic!()
-    }
+impl Db {
+    pub fn batch(&self) -> BatchWriter {
+        let batch = Batch(self.next_batch.fetch_add(1, Ordering::SeqCst));
+        assert_ne!(batch.0, usize::max_value());
 
+        let batch_writers = self.trees.iter().map(|(name, tree)| {
+            (name.clone(), tree.batch(batch))
+        }).collect();
+
+        BatchWriter {
+            batch,
+            batch_writers,
+            next_batch_commit: self.next_batch_commit.clone(),
+            next_commit: self.next_commit.clone(),
+            view_commit_limit: self.view_commit_limit.clone(),
+            commit_lock: self.commit_lock.clone(),
+        }
+    }
+}
+
+impl BatchWriter {
     fn tree_writer(&self, tree: &str) -> Result<&tree::BatchWriter> {
-        panic!()
+        self.batch_writers.get(tree)
+            .ok_or_else(|| anyhow!("no tree {}", tree))
     }
 
     pub async fn open(&self, tree: &str) -> Result<()> {
-        panic!()
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.open().await?)
     }
 
     pub async fn write(&self, tree: &str, key: Key, value: Value) -> Result<()> {
