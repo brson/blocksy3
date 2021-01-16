@@ -3,8 +3,8 @@ use crate::types::{View, Batch, BatchCommit, Commit, Key, Value};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
-use crate::index::Index;
-use anyhow::Result;
+use crate::index::{Index, ReadValue};
+use anyhow::{Result, anyhow};
 
 pub struct Tree {
     log: Arc<Log>,
@@ -36,7 +36,11 @@ impl Tree {
     }
 
     pub fn view(&self, view: View) -> ViewReader {
-        panic!()
+        ViewReader {
+            view,
+            log: self.log.clone(),
+            index: self.index.clone(),
+        }
     }
 }
 
@@ -130,5 +134,27 @@ impl BatchWriter {
         Ok(self.append_record(&Command::Close {
             batch: self.batch,
         }).await?)
+    }
+}
+
+impl ViewReader {
+    pub async fn read(&self, key: &Key) -> Result<Option<Value>> {
+        let commit_limit = Commit(self.view.0);
+        let addr = self.index.read(commit_limit, key);
+        match addr {
+            None => Ok(None),
+            Some(ReadValue::Deleted(_)) => Ok(None),
+            Some(ReadValue::Written(addr)) => {
+                let cmd = self.log.read_at(addr).await?;
+                match cmd {
+                    Command::Write { value, .. } => {
+                        Ok(Some(value))
+                    }
+                    _ => {
+                        Err(anyhow!("unexpected command in log"))
+                    }
+                }
+            }
+        }
     }
 }

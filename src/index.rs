@@ -6,7 +6,7 @@ pub use std::ops::RangeBounds;
 use crate::types::{Key, Address, Commit};
 
 #[derive(Copy, Clone)]
-pub enum Value {
+pub enum ReadValue {
     Written(Address),
     Deleted(Address),
 }
@@ -20,7 +20,7 @@ struct Node {
     key: Key,
     prev: RwLock<Option<Arc<Node>>>,
     next: RwLock<Option<Arc<Node>>>,
-    history: RwLock<Vec<(Commit, Value)>>,
+    history: RwLock<Vec<(Commit, ReadValue)>>,
 }
 
 pub struct Cursor {
@@ -43,7 +43,7 @@ impl Index {
         }
     }
 
-    pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Value> {
+    pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<ReadValue> {
         assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         let map = self.keymap.read().expect("lock");
         if let Some(node) = map.get(key) {
@@ -159,11 +159,11 @@ impl Cursor {
 
 impl<'index> Writer<'index> {
     pub fn write(&mut self, key: Key, addr: Address) {
-        self.update_value(key, Value::Written(addr))
+        self.update_value(key, ReadValue::Written(addr))
     }
 
     pub fn delete(&mut self, key: Key, addr: Address) {
-        self.update_value(key, Value::Deleted(addr))
+        self.update_value(key, ReadValue::Deleted(addr))
     }
 
     pub fn delete_range<R>(&mut self, range: R, addr: Address)
@@ -171,11 +171,11 @@ impl<'index> Writer<'index> {
     {
         for (_, node) in self.keymap.range_mut(range) {
             let mut history = node.history.write().expect("lock");
-            history.push((self.commit, Value::Deleted(addr)));
+            history.push((self.commit, ReadValue::Deleted(addr)));
         }
     }
 
-    fn update_value(&mut  self, key: Key, value: Value) {
+    fn update_value(&mut  self, key: Key, value: ReadValue) {
         let new_node;
         if let Some(node) = self.keymap.get_mut(&key) {
             // key already exists
