@@ -5,8 +5,8 @@ use crate::types::Address;
 use anyhow::Result;
 
 pub struct LogFile<Cmd> where Cmd: Serialize + for <'de> Deserialize<'de> {
-    pub append: Arc<Box<dyn Fn(Cmd) -> Box<dyn Future<Output = Result<Address>> + Unpin + 'static> + Send + Sync>>,
-    pub read_at: Arc<Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync>>,
+    pub append: Box<dyn Fn(Cmd) -> Box<dyn Future<Output = Result<Address>> + Unpin + 'static> + Send + Sync>,
+    pub read_at: Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync>,
 }
 
 impl<Cmd> LogFile<Cmd>
