@@ -126,7 +126,7 @@ impl BatchWriter {
         }
     }
 
-    pub async fn close(self) -> Result<()> {
+    pub async fn close(&self) -> Result<()> {
         Ok(self.append_record(&Command::Close {
             batch: self.batch,
         }).await?)

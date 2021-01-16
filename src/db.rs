@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::tree::{self, Tree};
 use anyhow::{Result, Context};
-use crate::types::{Batch, BatchCommit, Commit};
+use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 
 pub struct Db {
     config: DbConfig,
@@ -33,7 +33,7 @@ pub struct BatchWriter {
 }
 
 impl BatchWriter {
-    fn new() -> Result<()> {
+    pub fn new() -> Result<()> {
         panic!()
     }
 
@@ -43,6 +43,36 @@ impl BatchWriter {
 
     pub async fn open(&self, tree: &str) -> Result<()> {
         panic!()
+    }
+
+    pub async fn write(&self, tree: &str, key: Key, value: Value) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.write(key, value).await?)
+    }
+
+    pub async fn delete(&self, tree: &str, key: Key) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.delete(key).await?)
+    }
+
+    pub async fn delete_range(&self, tree: &str, start_key: Key, end_key: Key) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.delete_range(start_key, end_key).await?)
+    }
+
+    pub async fn push_save_point(&self, tree: &str) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.push_save_point().await?)
+    }
+
+    pub async fn pop_save_point(&self, tree: &str) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.pop_save_point().await?)
+    }
+
+    pub async fn rollback_save_point(&self, tree: &str) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.rollback_save_point().await?)
     }
 
     pub fn new_batch_commit_number(&self) -> BatchCommit {
@@ -87,12 +117,8 @@ impl BatchWriter {
         panic!()
     }
 
-    pub async fn close(self) -> Result<()> {
-        for (tree, writer) in self.batch_writers.into_iter() {
-            // If close isn't written it only should affect memory
-            // use during initial replay of logs.
-            let _ = writer.close().await;
-        }
-        Ok(())
+    pub async fn close(self, tree: &str) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.close().await?)
     }
 }
