@@ -106,12 +106,6 @@ impl BatchWriter {
         }).await?)
     }
 
-    async fn append_record(&self, cmd: &Command) -> Result<()> {
-        let address = self.log.append(&cmd).await?;
-        self.batch_player.record(&cmd, address);
-        Ok(())
-    }
-
     pub fn commit(&self, batch_commit: BatchCommit, commit: Commit) {
         let index_ops = self.batch_player.replay(self.batch, batch_commit);
         let mut writer = self.index.writer(commit);
@@ -134,6 +128,12 @@ impl BatchWriter {
         Ok(self.append_record(&Command::Close {
             batch: self.batch,
         }).await?)
+    }
+
+    async fn append_record(&self, cmd: &Command) -> Result<()> {
+        let address = self.log.append(&cmd).await?;
+        self.batch_player.record(&cmd, address);
+        Ok(())
     }
 }
 
