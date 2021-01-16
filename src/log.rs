@@ -23,7 +23,7 @@ impl Log {
         stream::unfold(state, |state| async {
             match state {
                 Some((log_file, addr)) => {
-                    let cmd = (log_file.read_at)(addr).await;
+                    let cmd = log_file.read_at(addr).await;
                     match cmd {
                         Err(e) => {
                             Some((Err(e), None))
@@ -44,12 +44,12 @@ impl Log {
         })
     }
 
-    pub async fn append(&self, cmd: &Command) -> Result<Address> {
-        Ok((self.log_file.append)(cmd).await?)
+    pub async fn append(&self, cmd: Command) -> Result<Address> {
+        Ok(self.log_file.append(cmd).await?)
     }
 
     pub async fn read_at(&self, address: Address) -> Result<Command> {
-        Ok((self.log_file.read_at)(address).await
+        Ok(self.log_file.read_at(address).await
            .map(|(cmd, _)| cmd)?)
     }
 }

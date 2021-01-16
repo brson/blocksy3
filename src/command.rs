@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::types::{Key, Value, Batch, BatchCommit};
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub enum Command {
     Open {
         batch: Batch,

@@ -46,13 +46,13 @@ impl Tree {
 
 impl BatchWriter {
     pub async fn open(&self) -> Result<()> {
-        Ok(self.append_record(&Command::Open {
+        Ok(self.append_record(Command::Open {
             batch: self.batch,
         }).await?)
     }
 
     pub async fn write(&self, key: Key, value: Value) -> Result<()> {
-        Ok(self.append_record(&Command::Write {
+        Ok(self.append_record(Command::Write {
             batch: self.batch,
             key,
             value,
@@ -60,14 +60,14 @@ impl BatchWriter {
     }
 
     pub async fn delete(&self, key: Key) -> Result<()> {
-        Ok(self.append_record(&Command::Delete {
+        Ok(self.append_record(Command::Delete {
             batch: self.batch,
             key,
         }).await?)
     }
 
     pub async fn delete_range(&self, start_key: Key, end_key: Key) -> Result<()> {
-        Ok(self.append_record(&Command::DeleteRange {
+        Ok(self.append_record(Command::DeleteRange {
             batch: self.batch,
             start_key,
             end_key,
@@ -75,32 +75,32 @@ impl BatchWriter {
     }
 
     pub async fn push_save_point(&self) -> Result<()> {
-        Ok(self.append_record(&Command::PushSavePoint {
+        Ok(self.append_record(Command::PushSavePoint {
             batch: self.batch,
         }).await?)
     }
 
     pub async fn pop_save_point(&self) -> Result<()> {
-        Ok(self.append_record(&Command::PopSavePoint {
+        Ok(self.append_record(Command::PopSavePoint {
             batch: self.batch,
         }).await?)
     }
 
     pub async fn rollback_save_point(&self) -> Result<()> {
-        Ok(self.append_record(&Command::RollbackSavePoint {
+        Ok(self.append_record(Command::RollbackSavePoint {
             batch: self.batch,
         }).await?)
     }
 
     pub async fn ready_commit(&self, batch_commit: BatchCommit) -> Result<()> {
-        Ok(self.append_record(&Command::ReadyCommit {
+        Ok(self.append_record(Command::ReadyCommit {
             batch: self.batch,
             batch_commit,
         }).await?)
     }
 
     pub async fn abort_commit(&self, batch_commit: BatchCommit) -> Result<()> {
-        Ok(self.append_record(&Command::AbortCommit {
+        Ok(self.append_record(Command::AbortCommit {
             batch: self.batch,
             batch_commit,
         }).await?)
@@ -125,7 +125,7 @@ impl BatchWriter {
     }
 
     pub async fn close(&self) -> Result<()> {
-        let res = self.append_record(&Command::Close {
+        let res = self.append_record(Command::Close {
             batch: self.batch,
         }).await;
 
@@ -137,8 +137,8 @@ impl BatchWriter {
         }
     }
 
-    async fn append_record(&self, cmd: &Command) -> Result<()> {
-        let address = self.log.append(&cmd).await?;
+    async fn append_record(&self, cmd: Command) -> Result<()> {
+        let address = self.log.append(cmd.clone()).await?;
         self.batch_player.record(&cmd, address);
         Ok(())
     }
