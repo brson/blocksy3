@@ -8,6 +8,7 @@ use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use futures::future::BoxFuture;
 use std::io::{Seek, SeekFrom};
+use crate::frame;
 
 fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
@@ -43,8 +44,11 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
     let path = state.path.clone();
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
-        let file = ctx.open_append(&path)?;
-        Ok(Address(0))
+        let mut file = ctx.open_append(&path)?;
+        frame::write(file, &cmd)?;
+        let pos = file.seek(SeekFrom::Current(0))?;
+        let addr = Address(pos);
+        Ok(addr)
     });
     Ok(future.await?)
 }
@@ -56,7 +60,16 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
         let mut file = ctx.open_read(&path)?;
         file.seek(SeekFrom::Start(addr.0))?;
-        panic!()
+        let cmd = frame::read(file)?;
+        let pos = file.seek(SeekFrom::Current(0))?;
+        let eof = file.seek(SeekFrom::End(0))?;
+        file.seek(SeekFrom::Start(pos))?;
+        let next_addr = if pos != eof {
+            Some(Address(pos))
+        } else {
+            None
+        };
+        Ok((cmd, next_addr))
     });
     Ok(future.await?)
 }
