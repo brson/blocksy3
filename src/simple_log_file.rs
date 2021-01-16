@@ -11,6 +11,7 @@ use futures::future::BoxFuture;
 fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
+    let path = Arc::new(path);
     let state1 = Arc::new(State { path, fs_thread });
     let state2 = state1.clone();
 
@@ -32,7 +33,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 }
 
 struct State {
-    path: PathBuf,
+    path: Arc<PathBuf>,
     fs_thread: Arc<FsThread>
 }
 
@@ -40,8 +41,8 @@ async fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> Result<Address>
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
     let path = state.path.clone();
-    let fs_thread = state.fs_thread.clone();
-    let future = state.fs_thread.run(|ctx| -> Result<_> {
+    let future = state.fs_thread.run(move |ctx| -> Result<_> {
+        let path = path;
         Ok(Address(0))
     });
     Ok(future.await?)
