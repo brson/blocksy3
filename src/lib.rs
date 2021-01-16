@@ -1,8 +1,8 @@
 #![allow(unused)]
 
+mod basic_db;
 mod batch_player;
 mod command;
-mod db;
 mod fs_thread;
 mod index;
 mod log;
