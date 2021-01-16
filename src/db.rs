@@ -33,52 +33,52 @@ pub struct BatchWriter {
 }
 
 impl BatchWriter {
-    pub async fn commit(&self) -> Result<()> {
+    fn new() -> Result<()> {
+        panic!()
+    }
+
+    fn tree_writer(&self, tree: &str) -> Result<&tree::BatchWriter> {
+        panic!()
+    }
+
+    pub async fn open(&self, tree: &str) -> Result<()> {
+        panic!()
+    }
+
+    pub fn new_batch_commit_number(&self) -> BatchCommit {
         // Take a new batch_commit number
         let batch_commit = BatchCommit(self.next_batch_commit.fetch_add(1, Ordering::SeqCst));
         assert_ne!(batch_commit.0, usize::max_value());
+        batch_commit
+    }
 
-        // First, ready-commit all the trees
-        {
-            let mut any_error = None;
-            for (tree, writer) in self.batch_writers.iter() {
-                if any_error.is_some() {
-                    if let Err(e) = writer.ready_commit(batch_commit).await {
-                        any_error = Some((e, tree));
-                    }
-                } else {
-                    writer.abort_commit(batch_commit).await;
-                }
-            }
-            if let Some((any_error, tree)) = any_error {
-                return Err(any_error)
-                    .context(format!("error ready-committing {}", tree));
-            }
-        }
+    pub async fn ready_commit(&self, tree: &str, batch_commit: BatchCommit) -> Result<()> {
+        let writer = self.tree_writer(tree)?;
+        Ok(writer.ready_commit(batch_commit).await?)
+    }
 
+    pub async fn commit(&self, batch_commit: BatchCommit) -> Result<()> {
         // Next steps are under the commit lock in order
         // to keep commits numbers stored monotonically
-        {
-            let commit_lock = self.commit_lock.lock().expect("lock");
+        let commit_lock = self.commit_lock.lock().expect("lock");
 
-            // Take a new commit number
-            let commit = Commit(self.next_commit.fetch_add(1, Ordering::SeqCst));
-            assert_ne!(commit.0, usize::max_value());
+        // Take a new commit number
+        let commit = Commit(self.next_commit.fetch_add(1, Ordering::SeqCst));
+        assert_ne!(commit.0, usize::max_value());
 
-            // Write the master commit.
-            // If this fails then the commit is effectively aborted.
-            self.write_master_commit(&commit_lock, commit, batch_commit).await?;
+        // Write the master commit.
+        // If this fails then the commit is effectively aborted.
+        self.write_master_commit(&commit_lock, commit, batch_commit).await?;
 
-            // Infallably promote each tree's writes to its index.
-            for (tree, writer) in self.batch_writers.iter() {
-                writer.commit(batch_commit, commit)
-            }
-
-            // Bump the view commit limit
-            let new_commit_limit = commit.0.checked_add(1).expect("overflow");
-            let old_commit_limit = self.view_commit_limit.swap(new_commit_limit, Ordering::SeqCst);
-            assert!(old_commit_limit < new_commit_limit);
+        // Infallably promote each tree's writes to its index.
+        for (tree, writer) in self.batch_writers.iter() {
+            writer.commit(batch_commit, commit)
         }
+
+        // Bump the view commit limit
+        let new_commit_limit = commit.0.checked_add(1).expect("overflow");
+        let old_commit_limit = self.view_commit_limit.swap(new_commit_limit, Ordering::SeqCst);
+        assert!(old_commit_limit < new_commit_limit);
 
         Ok(())
     }
