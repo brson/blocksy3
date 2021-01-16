@@ -11,7 +11,9 @@ pub struct Log {
 
 impl Log {
     pub fn new(log_file: LogFile<Command>) -> Log {
-        panic!()
+        Log {
+            log_file,
+        }
     }
 
     pub async fn replay(&self) -> impl Stream<Item = Result<Command>> {
@@ -19,10 +21,11 @@ impl Log {
     }
 
     pub async fn append(&self, cmd: &Command) -> Result<Address> {
-        panic!()
+        Ok((self.log_file.append)(cmd).await?)
     }
 
     pub async fn read_at(&self, address: Address) -> Result<Command> {
-        panic!()
+        Ok((self.log_file.read_at)(address).await
+           .map(|(cmd, _)| cmd)?)
     }
 }
