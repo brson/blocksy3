@@ -5,12 +5,6 @@ pub use std::collections::btree_map::{BTreeMap, Entry};
 pub use std::ops::RangeBounds;
 use crate::types::{Key, Address, Commit};
 
-#[derive(Copy, Clone)]
-pub enum ReadValue {
-    Written(Address),
-    Deleted(Address),
-}
-
 pub struct Index {
     maybe_next_commit: AtomicUsize,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
@@ -33,6 +27,12 @@ pub struct Writer<'index> {
     commit: Commit,
     maybe_next_commit: &'index AtomicUsize,
     keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
+}
+
+#[derive(Copy, Clone)]
+pub enum ReadValue {
+    Written(Address),
+    Deleted(Address),
 }
 
 impl Index {

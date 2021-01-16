@@ -121,6 +121,12 @@ impl BatchPlayer {
         }
     }
 
+    pub fn emergency_close(&self, batch: Batch) {
+        let mut batches = self.batches.lock().expect("lock");
+        assert!(batches.contains_key(&batch));
+        batches.remove(&batch);
+    }
+
     pub fn replay(&self, batch: Batch, batch_commit: BatchCommit) -> impl Iterator<Item = IndexOp> {
         let mut batches = self.batches.lock().expect("lock");
         let batch_data = batches.get(&batch).expect("batch");

@@ -125,9 +125,16 @@ impl BatchWriter {
     }
 
     pub async fn close(&self) -> Result<()> {
-        Ok(self.append_record(&Command::Close {
+        let res = self.append_record(&Command::Close {
             batch: self.batch,
-        }).await?)
+        }).await;
+
+        if let Err(e) = res {
+            self.batch_player.emergency_close(self.batch);
+            Err(e)
+        } else {
+            Ok(())
+        }
     }
 
     async fn append_record(&self, cmd: &Command) -> Result<()> {
