@@ -14,16 +14,20 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + 'static
     let state2 = state1.clone();
 
     let append_impl: Box<dyn Fn(Cmd) -> Box<dyn Future<Output = Result<Address>> + Unpin + 'static> + Send + Sync> = {
-        Box::new(|cmd| {
+        Box::new(move |cmd| {
             Box::new(append(state1.clone(), cmd))
         })
     };
     let read_at_impl: Box<dyn Fn(Address) -> Box<dyn Future<Output = Result<(Cmd, Option<Address>)>> + Unpin + 'static> + Send + Sync> = {
-        Box::new(|addr| {
+        Box::new(move |addr| {
             Box::new(read_at(state2.clone(), addr))
         })
     };
-    panic!();
+
+    LogFile {
+        append: append_impl,
+        read_at: read_at_impl,
+    }
 }
 
 struct State {
