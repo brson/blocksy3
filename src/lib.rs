@@ -7,5 +7,6 @@ mod fs_thread;
 mod index;
 mod log;
 mod log_file;
+mod simple_log_file;
 mod tree;
 mod types;
