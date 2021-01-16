@@ -39,7 +39,12 @@ struct State {
 async fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> Result<Address>
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
-    Ok(panic!())
+    let path = state.path.clone();
+    let fs_thread = state.fs_thread.clone();
+    let future = state.fs_thread.run(|ctx| -> Result<_> {
+        Ok(Address(0))
+    });
+    Ok(future.await?)
 }
 
 async fn read_at<Cmd>(state: Arc<State>, addr: Address) -> Result<(Cmd, Option<Address>)>
