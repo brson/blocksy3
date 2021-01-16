@@ -42,7 +42,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
 {
     let path = state.path.clone();
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
-        let path = path;
+        let file = ctx.open_append(&path)?;
         Ok(Address(0))
     });
     Ok(future.await?)
