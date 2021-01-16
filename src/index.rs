@@ -1,12 +1,12 @@
 pub use std::sync::Arc;
 pub use std::sync::{RwLock, RwLockWriteGuard};
-pub use std::sync::atomic::{AtomicUsize, Ordering};
+pub use std::sync::atomic::{AtomicU64, Ordering};
 pub use std::collections::btree_map::{BTreeMap, Entry};
 pub use std::ops::RangeBounds;
 use crate::types::{Key, Address, Commit};
 
 pub struct Index {
-    maybe_next_commit: AtomicUsize,
+    maybe_next_commit: AtomicU64,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
@@ -25,7 +25,7 @@ pub struct Cursor {
 
 pub struct Writer<'index> {
     commit: Commit,
-    maybe_next_commit: &'index AtomicUsize,
+    maybe_next_commit: &'index AtomicU64,
     keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
 }
 
@@ -38,7 +38,7 @@ pub enum ReadValue {
 impl Index {
     pub fn new() -> Index {
         Index {
-            maybe_next_commit: AtomicUsize::new(0),
+            maybe_next_commit: AtomicU64::new(0),
             keymap: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }

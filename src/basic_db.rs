@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::sync::Arc;
 use std::collections::BTreeMap;
@@ -9,11 +9,11 @@ use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 
 pub struct Db {
     config: DbConfig,
-    next_batch: AtomicUsize,
-    next_batch_commit: Arc<AtomicUsize>,
-    next_commit: Arc<AtomicUsize>,
-    next_view: AtomicUsize,
-    view_commit_limit: Arc<AtomicUsize>,
+    next_batch: AtomicU64,
+    next_batch_commit: Arc<AtomicU64>,
+    next_commit: Arc<AtomicU64>,
+    next_view: AtomicU64,
+    view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
     trees: BTreeMap<String, Tree>,
 }
@@ -26,16 +26,16 @@ pub struct DbConfig {
 pub struct BatchWriter {
     batch: Batch,
     batch_writers: BTreeMap<String, tree::BatchWriter>,
-    next_batch_commit: Arc<AtomicUsize>,
-    next_commit: Arc<AtomicUsize>,
-    view_commit_limit: Arc<AtomicUsize>,
+    next_batch_commit: Arc<AtomicU64>,
+    next_commit: Arc<AtomicU64>,
+    view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
 }
 
 impl Db {
     pub fn batch(&self) -> BatchWriter {
         let batch = Batch(self.next_batch.fetch_add(1, Ordering::SeqCst));
-        assert_ne!(batch.0, usize::max_value());
+        assert_ne!(batch.0, u64::max_value());
 
         let batch_writers = self.trees.iter().map(|(name, tree)| {
             (name.clone(), tree.batch(batch))
@@ -96,7 +96,7 @@ impl BatchWriter {
     pub fn new_batch_commit_number(&self) -> BatchCommit {
         // Take a new batch_commit number
         let batch_commit = BatchCommit(self.next_batch_commit.fetch_add(1, Ordering::SeqCst));
-        assert_ne!(batch_commit.0, usize::max_value());
+        assert_ne!(batch_commit.0, u64::max_value());
         batch_commit
     }
 
@@ -112,7 +112,7 @@ impl BatchWriter {
 
         // Take a new commit number
         let commit = Commit(self.next_commit.fetch_add(1, Ordering::SeqCst));
-        assert_ne!(commit.0, usize::max_value());
+        assert_ne!(commit.0, u64::max_value());
 
         // Write the master commit.
         // If this fails then the commit is effectively aborted.

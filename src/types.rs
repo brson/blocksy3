@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 #[derive(Eq, PartialEq)]
 #[derive(Copy, Clone)]
-pub struct Address(pub usize);
+pub struct Address(pub u64);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
@@ -18,17 +18,17 @@ pub struct Value(pub Arc<Vec<u8>>);
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
-pub struct Batch(pub usize);
+pub struct Batch(pub u64);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq)]
 #[derive(Copy, Clone)]
-pub struct BatchCommit(pub usize);
+pub struct BatchCommit(pub u64);
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
-pub struct View(pub usize);
+pub struct View(pub u64);
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
-pub struct Commit(pub usize);
+pub struct Commit(pub u64);
