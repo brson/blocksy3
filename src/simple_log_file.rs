@@ -7,7 +7,7 @@ use crate::fs_thread::FsThread;
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use futures::future::BoxFuture;
-use std::io::{Seek, SeekFrom};
+use std::io::{Seek, SeekFrom, BufReader};
 use crate::frame;
 
 fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
@@ -59,8 +59,9 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
     let path = state.path.clone();
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
         let mut file = ctx.open_read(&path)?;
+        let mut file = BufReader::new(file);
         file.seek(SeekFrom::Start(addr.0))?;
-        let cmd = frame::read(file)?;
+        let cmd = frame::read(&mut file)?;
         let pos = file.seek(SeekFrom::Current(0))?;
         let eof = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(pos))?;
