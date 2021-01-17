@@ -91,21 +91,28 @@ impl Drop for Index {
 }
 
 impl Cursor {
-    pub fn valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         self.current.is_some()
     }
 
     pub fn next(&mut self) {
-        assert!(self.valid());
+        assert!(self.is_valid());
         let mut candidate_node = {
             self.current.as_ref().expect("valid").next.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
-            for (commit, _) in history.iter().rev() {
+            for (commit, value) in history.iter().rev() {
                 if *commit < self.commit_limit {
-                    self.current = Some(node.clone());
-                    return;
+                    match value {
+                        ReadValue::Written(_) => {
+                            self.current = Some(node.clone());
+                            return;
+                        },
+                        ReadValue::Deleted(_) => {
+                            break;
+                        },
+                    }
                 }
             }
             candidate_node = node.next.read().expect("lock").clone();
@@ -114,16 +121,23 @@ impl Cursor {
     }
 
     pub fn prev(&mut self) {
-        assert!(self.valid());
+        assert!(self.is_valid());
         let mut candidate_node = {
             self.current.as_ref().expect("valid").prev.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
             let history = node.history.read().expect("lock");
-            for (commit, _) in history.iter().rev() {
+            for (commit, value) in history.iter().rev() {
                 if *commit < self.commit_limit {
-                    self.current = Some(node.clone());
-                    return;
+                    match value {
+                        ReadValue::Written(_) => {
+                            self.current = Some(node.clone());
+                            return;
+                        },
+                        ReadValue::Deleted(_) => {
+                            break;
+                        },
+                    }
                 }
             }
             candidate_node = node.prev.read().expect("lock").clone();
@@ -132,8 +146,12 @@ impl Cursor {
     }
 
     pub fn key(&self) -> Key {
-        assert!(self.valid());
+        assert!(self.is_valid());
         self.current.as_ref().expect("valid").key.clone()
+    }
+
+    pub fn value(&self) -> Address {
+        panic!()
     }
 
     pub fn seek_first(&mut self) {

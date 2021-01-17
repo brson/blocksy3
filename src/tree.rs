@@ -20,6 +20,8 @@ pub struct BatchWriter {
 }
 
 pub struct Cursor {
+    log: Arc<Log>,
+    index_cursor: index::Cursor,
 }
 
 impl Tree {
@@ -58,7 +60,10 @@ impl Tree {
     }
 
     pub fn cursor(&self, commit_limit: Commit) -> Cursor {
-        panic!()
+        Cursor {
+            log: self.log.clone(),
+            index_cursor: self.index.cursor(commit_limit),
+        }
     }
 }
 
@@ -159,5 +164,11 @@ impl BatchWriter {
         let address = self.log.append(cmd.clone()).await?;
         self.batch_player.record(&cmd, address);
         Ok(())
+    }
+}
+
+impl Cursor {
+    pub fn is_valid(&self) -> bool {
+        self.index_cursor.is_valid()
     }
 }
