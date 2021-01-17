@@ -80,12 +80,17 @@ impl Index {
 
 impl Drop for Index {
     fn drop(&mut self) {
-        let mut keymap = self.keymap.write().expect("lock");
-        for (_, mut node) in keymap.iter_mut() {
-            let mut prev = node.prev.write().expect("lock");
-            *prev = None;
-            let mut next = node.next.write().expect("lock");
-            *next = None;
+        if let Ok(mut keymap) = self.keymap.write() {
+            for (_, mut node) in keymap.iter_mut() {
+                if let Ok(mut prev) = node.prev.write() {
+                    *prev = None;
+                }
+                if let Ok(mut next) = node.next.write() {
+                    *next = None;
+                }
+            }
+        } else {
+            // massive memory leak!
         }
     }
 }
