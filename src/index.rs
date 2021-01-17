@@ -44,14 +44,21 @@ impl Index {
         }
     }
 
-    pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<ReadValue> {
+    pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
         assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         let map = self.keymap.read().expect("lock");
         if let Some(node) = map.get(key) {
             let history = node.history.read().expect("lock");
             for (h_commit, value) in history.iter().rev() {
                 if *h_commit < commit_limit {
-                    return Some(*value);
+                    match value {
+                        ReadValue::Written(addr) => {
+                            return Some(*addr);
+                        },
+                        ReadValue::Deleted(addr) => {
+                            return None;
+                        }
+                    }
                 }
             }
             None

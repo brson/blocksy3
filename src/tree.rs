@@ -3,7 +3,7 @@ use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
-use crate::index::{self, Index, ReadValue};
+use crate::index::{self, Index};
 use anyhow::{Result, anyhow};
 
 pub struct Tree {
@@ -37,25 +37,19 @@ impl Tree {
     pub async fn read(&self, commit_limit: Commit, key: &Key) -> Result<Option<Value>> {
         let addr = self.index.read(commit_limit, key);
 
-        match addr {
-            Some(ReadValue::Written(addr)) => {
-                let cmd = self.log.read_at(addr).await?;
-                match cmd {
-                    Command::Write { key: log_key , value, .. } => {
-                        assert_eq!(key, &log_key);
-                        Ok(Some(value))
-                    }
-                    _ => {
-                        Err(anyhow!("unexpected command in log"))
-                    }
+        if let Some(addr) = addr {
+            let cmd = self.log.read_at(addr).await?;
+            match cmd {
+                Command::Write { key: log_key , value, .. } => {
+                    assert_eq!(key, &log_key);
+                    Ok(Some(value))
+                }
+                _ => {
+                    Err(anyhow!("unexpected command in log"))
                 }
             }
-            Some(ReadValue::Deleted(_)) => {
-                Ok(None)
-            }
-            None => {
-                Ok(None)
-            }
+        } else {
+            Ok(None)
         }
     }
 
