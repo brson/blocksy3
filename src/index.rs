@@ -1,3 +1,4 @@
+pub use log::error;
 pub use std::sync::Arc;
 pub use std::sync::{RwLock, RwLockWriteGuard};
 pub use std::sync::atomic::{AtomicU64, Ordering};
@@ -80,17 +81,23 @@ impl Index {
 
 impl Drop for Index {
     fn drop(&mut self) {
+        // Don't panic on drop
         if let Ok(mut keymap) = self.keymap.write() {
             for (_, mut node) in keymap.iter_mut() {
+                let err = || error!("failed index unlink due to lock poison");
                 if let Ok(mut prev) = node.prev.write() {
                     *prev = None;
+                } else {
+                    err();
                 }
                 if let Ok(mut next) = node.next.write() {
                     *next = None;
+                } else {
+                    err();
                 }
             }
         } else {
-            // massive memory leak!
+            error!("massive index leak due to lock poison");
         }
     }
 }
