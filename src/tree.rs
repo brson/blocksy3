@@ -22,6 +22,7 @@ pub struct BatchWriter {
 pub struct Cursor {
     log: Arc<Log>,
     index_cursor: index::Cursor,
+    value: Option<Value>,
 }
 
 impl Tree {
@@ -57,6 +58,7 @@ impl Tree {
         Cursor {
             log: self.log.clone(),
             index_cursor: self.index.cursor(commit_limit),
+            value: None,
         }
     }
 }
@@ -164,5 +166,58 @@ impl BatchWriter {
 impl Cursor {
     pub fn is_valid(&self) -> bool {
         self.index_cursor.is_valid()
+    }
+
+    pub fn key(&self) -> Key {
+        self.index_cursor.key()
+    }
+
+    pub async fn value(&mut self) -> Result<Value> {
+        assert!(self.is_valid());
+        if let Some(value) = &self.value {
+            Ok(value.clone())
+        } else {
+            let addr = self.index_cursor.address();
+            let cmd = self.log.read_at(addr).await?;
+            match cmd {
+                Command::Write { key, value, .. } => {
+                    assert_eq!(key, self.key());
+                    Ok(value)
+                },
+                _ => {
+                    Err(anyhow!("unexpected command from log"))
+                }
+            }
+        }
+    }
+
+    pub fn next(&mut self) {
+        self.value = None;
+        self.index_cursor.next()
+    }
+
+    pub fn prev(&mut self) {
+        self.value = None;
+        self.index_cursor.prev()
+    }
+
+    pub fn seek_first(&mut self) {
+        self.value = None;
+        self.index_cursor.seek_first()
+    }
+
+    pub fn seek_last(&mut self) {
+        self.value = None;
+        self.index_cursor.seek_last()
+    }
+
+    pub fn seek_key(&mut self, key: Key) {
+        self.value = None;
+        self.index_cursor.seek_key(key)
+    }
+
+    pub fn seek_key_rev(&mut self, key: Key) {
+        self.value = None;
+        self.index_cursor.seek_key_rev(key)
     }
 }
