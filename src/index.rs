@@ -101,19 +101,9 @@ impl Cursor {
             self.current.as_ref().expect("valid").next.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            let history = node.history.read().expect("lock");
-            for (commit, value) in history.iter().rev() {
-                if *commit < self.commit_limit {
-                    match value {
-                        ReadValue::Written(_) => {
-                            self.current = Some(node.clone());
-                            return;
-                        },
-                        ReadValue::Deleted(_) => {
-                            break;
-                        },
-                    }
-                }
+            if self.has_value_in_commit(&node) {
+                self.current = Some(node);
+                return;
             }
             candidate_node = node.next.read().expect("lock").clone();
         }
@@ -126,19 +116,9 @@ impl Cursor {
             self.current.as_ref().expect("valid").prev.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            let history = node.history.read().expect("lock");
-            for (commit, value) in history.iter().rev() {
-                if *commit < self.commit_limit {
-                    match value {
-                        ReadValue::Written(_) => {
-                            self.current = Some(node.clone());
-                            return;
-                        },
-                        ReadValue::Deleted(_) => {
-                            break;
-                        },
-                    }
-                }
+            if self.has_value_in_commit(&node) {
+                self.current = Some(node);
+                return;
             }
             candidate_node = node.prev.read().expect("lock").clone();
         }
@@ -156,22 +136,51 @@ impl Cursor {
 
     pub fn seek_first(&mut self) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.iter().map(|(_, node)| node.clone()).next();
+        self.current = keymap.iter()
+            .map(|(_, node)| node.clone())
+            .filter(|node| self.has_value_in_commit(node))
+            .next();
     }
 
     pub fn seek_last(&mut self) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.iter().rev().map(|(_, node)| node.clone()).next();
+        self.current = keymap.iter().rev()
+            .map(|(_, node)| node.clone())
+            .filter(|node| self.has_value_in_commit(node))
+            .next();
     }
 
     pub fn seek_key(&mut self, key: Key) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.range(key..).map(|(_, node)| node.clone()).next();
+        self.current = keymap.range(key..)
+            .map(|(_, node)| node.clone())
+            .filter(|node| self.has_value_in_commit(node))
+            .next();
     }
 
     pub fn seek_key_rev(&mut self, key: Key) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.range(..=key).rev().map(|(_, node)| node.clone()).next();
+        self.current = keymap.range(..=key).rev()
+            .map(|(_, node)| node.clone())
+            .filter(|node| self.has_value_in_commit(node))
+            .next();
+    }
+
+    fn has_value_in_commit(&self, node: &Node) -> bool {
+        let history = node.history.read().expect("lock");
+        for (commit, value) in history.iter().rev() {
+            if *commit < self.commit_limit {
+                match value {
+                    ReadValue::Written(_) => {
+                        return true;
+                    },
+                    ReadValue::Deleted(_) => {
+                        return false;
+                    },
+                }
+            }
+        }
+        return false;
     }
 }
 
