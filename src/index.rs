@@ -19,7 +19,7 @@ struct Node {
 
 pub struct Cursor {
     commit_limit: Commit,
-    current: Option<Arc<Node>>,
+    current: Option<(Arc<Node>, Address)>,
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
@@ -98,11 +98,11 @@ impl Cursor {
     pub fn next(&mut self) {
         assert!(self.is_valid());
         let mut candidate_node = {
-            self.current.as_ref().expect("valid").next.read().expect("lock").clone()
+            self.current.as_ref().expect("valid").0.next.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            if self.value_within_commit_limit(&node).is_some() {
-                self.current = Some(node);
+            if let Some(addr) = self.value_within_commit_limit(&node) {
+                self.current = Some((node, addr));
                 return;
             }
             candidate_node = node.next.read().expect("lock").clone();
@@ -113,11 +113,11 @@ impl Cursor {
     pub fn prev(&mut self) {
         assert!(self.is_valid());
         let mut candidate_node = {
-            self.current.as_ref().expect("valid").prev.read().expect("lock").clone()
+            self.current.as_ref().expect("valid").0.prev.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            if self.value_within_commit_limit(&node).is_some() {
-                self.current = Some(node);
+            if let Some(addr) = self.value_within_commit_limit(&node) {
+                self.current = Some((node, addr));
                 return;
             }
             candidate_node = node.prev.read().expect("lock").clone();
@@ -127,18 +127,19 @@ impl Cursor {
 
     pub fn key(&self) -> Key {
         assert!(self.is_valid());
-        self.current.as_ref().expect("valid").key.clone()
+        self.current.as_ref().expect("valid").0.key.clone()
     }
 
-    pub fn value(&self) -> Address {
-        panic!()
+    pub fn address(&self) -> Address {
+        assert!(self.is_valid());
+        self.current.as_ref().expect("valid").1
     }
 
     pub fn seek_first(&mut self) {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.iter()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.value_within_commit_limit(node).is_some())
+            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
             .next();
     }
 
@@ -146,7 +147,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.iter().rev()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.value_within_commit_limit(node).is_some())
+            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
             .next();
     }
 
@@ -154,7 +155,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.range(key..)
             .map(|(_, node)| node.clone())
-            .filter(|node| self.value_within_commit_limit(node).is_some())
+            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
             .next();
     }
 
@@ -162,7 +163,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.range(..=key).rev()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.value_within_commit_limit(node).is_some())
+            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
             .next();
     }
 
