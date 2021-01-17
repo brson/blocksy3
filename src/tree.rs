@@ -46,7 +46,7 @@ impl Tree {
                     Ok(Some(value))
                 }
                 _ => {
-                    Err(anyhow!("unexpected command in log"))
+                    Err(anyhow!(UNEXPECTED_LOG))
                 }
             }
         } else {
@@ -185,7 +185,7 @@ impl Cursor {
                     Ok(value)
                 },
                 _ => {
-                    Err(anyhow!("unexpected command from log"))
+                    Err(anyhow!(UNEXPECTED_LOG))
                 }
             }
         }
@@ -221,3 +221,5 @@ impl Cursor {
         self.index_cursor.seek_key_rev(key)
     }
 }
+
+static UNEXPECTED_LOG: &'static str = "unexpected command in log";
