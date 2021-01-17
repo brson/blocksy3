@@ -32,6 +32,7 @@ pub struct BatchWriter {
 }
 
 pub struct ViewReader {
+    commit_limit: Commit,
 }
 
 impl Db {
