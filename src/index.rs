@@ -217,7 +217,7 @@ impl<'index> Writer<'index> {
 
     fn update_value(&mut  self, key: Key, value: ReadValue) {
         let new_node;
-        if let Some(node) = self.keymap.get_mut(&key) {
+        if let Some(node) = self.keymap.get(&key) {
             // key already exists
             let mut history = node.history.write().expect("lock");
             history.push((self.commit, value));
