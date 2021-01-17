@@ -137,34 +137,26 @@ impl Cursor {
 
     pub fn seek_first(&mut self) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.iter()
-            .map(|(_, node)| node.clone())
-            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
-            .next();
+        let iter = keymap.iter();
+        self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_last(&mut self) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.iter().rev()
-            .map(|(_, node)| node.clone())
-            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
-            .next();
+        let iter = keymap.iter().rev();
+        self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key(&mut self, key: Key) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.range(key..)
-            .map(|(_, node)| node.clone())
-            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
-            .next();
+        let iter = keymap.range(key..);
+        self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key_rev(&mut self, key: Key) {
         let keymap = self.keymap.read().expect("lock");
-        self.current = keymap.range(..=key).rev()
-            .map(|(_, node)| node.clone())
-            .filter_map(|node| self.value_within_commit_limit(&node).map(|addr| (node, addr)))
-            .next();
+        let iter = keymap.range(..=key).rev();
+        self.current = self.first_within_commit_limit(iter);
     }
 
     fn value_within_commit_limit(&self, node: &Node) -> Option<Address> {
@@ -182,6 +174,14 @@ impl Cursor {
             }
         }
         None
+    }
+
+    fn first_within_commit_limit<'a>(&self, iter: impl Iterator<Item = (&'a Key, &'a Arc<Node>)>) -> Option<(Arc<Node>, Address)> {
+        iter.map(|(_, node)| node)
+            .filter_map(|node| {
+                self.value_within_commit_limit(node).map(|addr| (node.clone(), addr))
+            })
+            .next()
     }
 }
 
