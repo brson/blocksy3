@@ -101,7 +101,7 @@ impl Cursor {
             self.current.as_ref().expect("valid").next.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            if self.has_value_in_commit(&node) {
+            if self.value_within_commit_limit(&node).is_some() {
                 self.current = Some(node);
                 return;
             }
@@ -116,7 +116,7 @@ impl Cursor {
             self.current.as_ref().expect("valid").prev.read().expect("lock").clone()
         };
         while let Some(node) = candidate_node {
-            if self.has_value_in_commit(&node) {
+            if self.value_within_commit_limit(&node).is_some() {
                 self.current = Some(node);
                 return;
             }
@@ -138,7 +138,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.iter()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.has_value_in_commit(node))
+            .filter(|node| self.value_within_commit_limit(node).is_some())
             .next();
     }
 
@@ -146,7 +146,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.iter().rev()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.has_value_in_commit(node))
+            .filter(|node| self.value_within_commit_limit(node).is_some())
             .next();
     }
 
@@ -154,7 +154,7 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.range(key..)
             .map(|(_, node)| node.clone())
-            .filter(|node| self.has_value_in_commit(node))
+            .filter(|node| self.value_within_commit_limit(node).is_some())
             .next();
     }
 
@@ -162,25 +162,25 @@ impl Cursor {
         let keymap = self.keymap.read().expect("lock");
         self.current = keymap.range(..=key).rev()
             .map(|(_, node)| node.clone())
-            .filter(|node| self.has_value_in_commit(node))
+            .filter(|node| self.value_within_commit_limit(node).is_some())
             .next();
     }
 
-    fn has_value_in_commit(&self, node: &Node) -> bool {
+    fn value_within_commit_limit(&self, node: &Node) -> Option<Address> {
         let history = node.history.read().expect("lock");
         for (commit, value) in history.iter().rev() {
             if *commit < self.commit_limit {
                 match value {
-                    ReadValue::Written(_) => {
-                        return true;
+                    ReadValue::Written(addr) => {
+                        return Some(*addr);
                     },
                     ReadValue::Deleted(_) => {
-                        return false;
+                        return None;
                     },
                 }
             }
         }
-        return false;
+        None
     }
 }
 
