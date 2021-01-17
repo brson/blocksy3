@@ -12,7 +12,6 @@ pub struct Db {
     next_batch: AtomicU64,
     next_batch_commit: Arc<AtomicU64>,
     next_commit: Arc<AtomicU64>,
-    next_view: AtomicU64,
     view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
     trees: BTreeMap<String, Tree>,
@@ -32,6 +31,9 @@ pub struct BatchWriter {
     commit_lock: Arc<Mutex<()>>,
 }
 
+pub struct ViewReader {
+}
+
 impl Db {
     pub fn batch(&self) -> BatchWriter {
         let batch = Batch(self.next_batch.fetch_add(1, Ordering::SeqCst));
@@ -49,6 +51,12 @@ impl Db {
             view_commit_limit: self.view_commit_limit.clone(),
             commit_lock: self.commit_lock.clone(),
         }
+    }
+
+    pub fn view(&self) -> ViewReader {
+        let commit_limit = Commit(self.view_commit_limit.load(Ordering::SeqCst));
+
+        panic!()
     }
 }
 
@@ -140,3 +148,4 @@ impl BatchWriter {
         Ok(writer.close().await?)
     }
 }
+

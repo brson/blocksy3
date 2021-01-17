@@ -8,6 +8,7 @@ pub struct Address(pub u64);
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct Key(pub Arc<Vec<u8>>);
 
 #[derive(Serialize, Deserialize)]

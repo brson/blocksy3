@@ -1,9 +1,9 @@
 use std::sync::Arc;
-use crate::types::{View, Batch, BatchCommit, Commit, Key, Value};
+use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
-use crate::index::{Index, ReadValue};
+use crate::index::{self, Index, ReadValue};
 use anyhow::{Result, anyhow};
 
 pub struct Tree {
@@ -19,10 +19,7 @@ pub struct BatchWriter {
     index: Arc<Index>,
 }
 
-pub struct ViewReader {
-    view: View,
-    log: Arc<Log>,
-    index: Arc<Index>,
+pub struct Cursor {
 }
 
 impl Tree {
@@ -35,12 +32,33 @@ impl Tree {
         }
     }
 
-    pub fn view(&self, view: View) -> ViewReader {
-        ViewReader {
-            view,
-            log: self.log.clone(),
-            index: self.index.clone(),
+    pub async fn read(&self, commit_limit: Commit, key: &Key) -> Result<Option<Value>> {
+        let addr = self.index.read(commit_limit, key);
+
+        match addr {
+            Some(ReadValue::Written(addr)) => {
+                let cmd = self.log.read_at(addr).await?;
+                match cmd {
+                    Command::Write { key: log_key , value, .. } => {
+                        assert_eq!(key, &log_key);
+                        Ok(Some(value))
+                    }
+                    _ => {
+                        Err(anyhow!("unexpected command in log"))
+                    }
+                }
+            }
+            Some(ReadValue::Deleted(_)) => {
+                Ok(None)
+            }
+            None => {
+                Ok(None)
+            }
         }
+    }
+
+    pub fn cursor(&self, commit_limit: Commit) -> Cursor {
+        panic!()
     }
 }
 
@@ -141,27 +159,5 @@ impl BatchWriter {
         let address = self.log.append(cmd.clone()).await?;
         self.batch_player.record(&cmd, address);
         Ok(())
-    }
-}
-
-impl ViewReader {
-    pub async fn read(&self, key: &Key) -> Result<Option<Value>> {
-        let commit_limit = Commit(self.view.0);
-        let addr = self.index.read(commit_limit, key);
-        match addr {
-            None => Ok(None),
-            Some(ReadValue::Deleted(_)) => Ok(None),
-            Some(ReadValue::Written(addr)) => {
-                let cmd = self.log.read_at(addr).await?;
-                match cmd {
-                    Command::Write { value, .. } => {
-                        Ok(Some(value))
-                    }
-                    _ => {
-                        Err(anyhow!("unexpected command in log"))
-                    }
-                }
-            }
-        }
     }
 }
