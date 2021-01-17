@@ -1,3 +1,4 @@
+use log::debug;
 use std::collections::btree_map::Entry;
 use log::error;
 use std::collections::BTreeMap;
@@ -79,27 +80,9 @@ impl FsThread {
 
 impl FsThread {
     fn shutdown(&mut self) {
+        debug!("blocking for fs_thread shutdown");
         let (mut rsp_tx, rsp_rx) = mpsc::channel();
-        loop {
-            let r = self.tx.try_send(Message::Shutdown(rsp_tx));
-            if let Err(e) = r {
-                match e {
-                    TrySendError::Full(Message::Shutdown(tx)) => {
-                        rsp_tx = tx;
-                    },
-                    TrySendError::Full(_) => {
-                        unreachable!();
-                    }
-                    TrySendError::Closed(_) => {
-                        panic!("shutdown channel closed");
-                        break;
-                    }
-                }
-            } else {
-                break;
-            }
-            thread::yield_now();
-        }
+        self.tx.try_send(Message::Shutdown(rsp_tx)).expect("send");
         rsp_rx.recv().expect("recv");
     }
 }

@@ -1,3 +1,5 @@
+//! A human-readable write log format
+
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use std::io::{Read, Write, BufRead};
@@ -48,7 +50,7 @@ where Io: Read + BufRead,
     }
 
 
-    // Read header bytes until FRAME_BODY_MARKER
+    // Read header lines until FRAME_BODY_MARKER
     let body_length;
     {
         let mut header = String::new();
