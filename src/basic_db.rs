@@ -33,6 +33,7 @@ pub struct BatchWriter {
 
 pub struct ViewReader {
     commit_limit: Commit,
+    trees: Arc<BTreeMap<String, Tree>>,
 }
 
 pub struct Cursor {
@@ -61,7 +62,10 @@ impl Db {
     pub fn view(&self) -> ViewReader {
         let commit_limit = Commit(self.view_commit_limit.load(Ordering::SeqCst));
 
-        panic!()
+        ViewReader {
+            commit_limit,
+            trees: self.trees.clone(),
+        }
     }
 }
 
