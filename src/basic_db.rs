@@ -159,11 +159,17 @@ impl BatchWriter {
 
 impl ViewReader {
     pub async fn read(&self, tree: &str, key: &Key) -> Result<Option<Value>> {
-        panic!()
+        let tree = self.trees.get(tree).expect("tree");
+        Ok(tree.read(self.commit_limit, key).await?)
     }
 
     pub fn cursor(&self, tree: &str) -> Cursor {
-        panic!()
+        let tree = self.trees.get(tree).expect("tree");
+        let tree_cursor = tree.cursor(self.commit_limit);
+
+        Cursor {
+            tree_cursor,
+        }
     }
 }
 
