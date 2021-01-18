@@ -35,6 +35,10 @@ pub struct ViewReader {
     commit_limit: Commit,
 }
 
+pub struct Cursor {
+    tree_cursor: tree::Cursor,
+}
+
 impl Db {
     pub fn batch(&self) -> BatchWriter {
         let batch = Batch(self.next_batch.fetch_add(1, Ordering::SeqCst));
@@ -62,43 +66,42 @@ impl Db {
 }
 
 impl BatchWriter {
-    fn tree_writer(&self, tree: &str) -> Result<&tree::BatchWriter> {
-        self.batch_writers.get(tree)
-            .ok_or_else(|| anyhow!("no tree {}", tree))
+    fn tree_writer(&self, tree: &str) -> &tree::BatchWriter {
+        self.batch_writers.get(tree).expect("tree")
     }
 
     pub async fn open(&self, tree: &str) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.open().await?)
     }
 
     pub async fn write(&self, tree: &str, key: Key, value: Value) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.write(key, value).await?)
     }
 
     pub async fn delete(&self, tree: &str, key: Key) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.delete(key).await?)
     }
 
     pub async fn delete_range(&self, tree: &str, start_key: Key, end_key: Key) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.delete_range(start_key, end_key).await?)
     }
 
     pub async fn push_save_point(&self, tree: &str) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.push_save_point().await?)
     }
 
     pub async fn pop_save_point(&self, tree: &str) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.pop_save_point().await?)
     }
 
     pub async fn rollback_save_point(&self, tree: &str) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.rollback_save_point().await?)
     }
 
@@ -110,7 +113,7 @@ impl BatchWriter {
     }
 
     pub async fn ready_commit(&self, tree: &str, batch_commit: BatchCommit) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.ready_commit(batch_commit).await?)
     }
 
@@ -145,8 +148,55 @@ impl BatchWriter {
     }
 
     pub async fn close(self, tree: &str) -> Result<()> {
-        let writer = self.tree_writer(tree)?;
+        let writer = self.tree_writer(tree);
         Ok(writer.close().await?)
     }
 }
 
+impl ViewReader {
+    pub async fn read(&self, tree: &str, key: &Key) -> Result<Option<Value>> {
+        panic!()
+    }
+
+    pub fn cursor(&self, tree: &str) -> Cursor {
+        panic!()
+    }
+}
+
+impl Cursor {
+    pub fn is_valid(&self) -> bool {
+        self.tree_cursor.is_valid()
+    }
+
+    pub fn key(&self) -> Key {
+        self.tree_cursor.key()
+    }
+
+    pub async fn value(&mut self) -> Result<Value> {
+        Ok(self.tree_cursor.value().await?)
+    }
+
+    pub fn next(&mut self) {
+        self.tree_cursor.next()
+    }
+
+    pub fn prev(&mut self) {
+        self.tree_cursor.prev()
+    }
+
+    pub fn seek_first(&mut self) {
+        self.tree_cursor.seek_first()
+    }
+
+    pub fn seek_last(&mut self) {
+        self.tree_cursor.seek_last()
+    }
+
+    pub fn seek_key(&mut self, key: Key) {
+        self.tree_cursor.seek_key(key)
+    }
+
+    pub fn seek_key_rev(&mut self, key: Key) {
+        self.tree_cursor.seek_key_rev(key)
+    }
+}
