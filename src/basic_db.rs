@@ -14,7 +14,7 @@ pub struct Db {
     next_commit: Arc<AtomicU64>,
     view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
-    trees: BTreeMap<String, Tree>,
+    trees: Arc<BTreeMap<String, Tree>>,
 }
 
 pub struct DbConfig {
