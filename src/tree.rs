@@ -28,6 +28,10 @@ pub struct Cursor {
     value: Option<Value>,
 }
 
+pub struct InitReplayer<'tree> {
+    tree: &'tree Tree,
+}
+
 impl Tree {
     pub fn new(log: Log<Command>) -> Tree {
         Tree {
@@ -38,14 +42,18 @@ impl Tree {
         }
     }
 
-    pub fn init_replayer(&self) -> Result<()> {
+    pub fn init_replayer(&self) -> InitReplayer {
         assert!(!self.initialized.load(Ordering::SeqCst));
 
-        panic!();
-        
-        self.initialized.store(true, Ordering::SeqCst);
+        impl<'tree> Drop for InitReplayer<'tree> {
+            fn drop(&mut self) {
+                self.tree.initialized.store(true, Ordering::SeqCst);
+            }
+        }
 
-        Ok(())
+        InitReplayer {
+            tree: &self,
+        }
     }
 
     pub fn batch(&self, batch: Batch) -> BatchWriter {
