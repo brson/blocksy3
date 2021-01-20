@@ -45,7 +45,7 @@ pub enum Command {
 }
 
 impl Command {
-    fn batch(&self) -> Batch {
+    pub fn batch(&self) -> Batch {
         use Command::*;
         match self {
             Open { batch }

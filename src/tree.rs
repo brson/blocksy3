@@ -47,9 +47,8 @@ impl<'tree> InitReplayer<'tree> {
                                batch_commit: BatchCommit,
                                commit: Commit) -> Result<()> {
 
-        // NB: 'move's take the original vars out of scope
-        let target_bach = (move || batch)();
-        let target_batch_commit = move batch_commit;
+        let target_bach = batch;
+        let target_batch_commit = batch_commit;
         let foo = batch;
         
         while let Some(next_cmd) = self.cmd_stream.next().await {
