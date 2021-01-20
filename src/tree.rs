@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use crate::types::{Batch, BatchCommit, Commit, Key, Value};
+use crate::types::{Batch, BatchCommit, Commit, Key, Value, Address};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
@@ -31,7 +31,7 @@ pub struct Cursor {
 
 pub struct InitReplayer<'tree> {
     initialized: &'tree AtomicBool,
-    log: &'tree Log<Command>,
+    log_player: Box<dyn Stream<Item = Result<(Command, Address)>>>,
     index: &'tree Index,
     batch_players: BTreeMap<Batch, BatchPlayer>,
     previous_commit: Option<Commit>,
@@ -78,7 +78,7 @@ impl Tree {
 
         InitReplayer {
             initialized: &self.initialized,
-            log: &*self.log,
+            log_player: Box::new(self.log.replay()),
             index: &*self.index,
             batch_players: BTreeMap::new(),
             previous_commit: None,
