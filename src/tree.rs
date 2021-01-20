@@ -50,6 +50,16 @@ impl<'tree> InitReplayer<'tree> {
 
         let target_batch = batch;
         let target_batch_commit = batch_commit;
+
+        if self.waiting_to_commit.remove(&(target_batch, target_batch_commit)) {
+            let batch_player = self.batch_players.get(&batch);
+            if let Some(batch_player) = batch_player {
+                commit_to_index(&batch_player, &self.index, batch, batch_commit, commit);
+                return Ok(());
+            } else {
+                bail!("batch closed before commit during init replay");
+            }
+        }
         
         while let Some(next_cmd) = self.cmd_stream.next().await {
             let (next_cmd, addr) = next_cmd?;
