@@ -46,26 +46,39 @@ impl<'tree> InitReplayer<'tree> {
                                batch: Batch,
                                batch_commit: BatchCommit,
                                commit: Commit) -> Result<()> {
+
+        // NB: 'move's take the original vars out of scope
+        let target_bach = (move || batch)();
+        let target_batch_commit = move batch_commit;
+        let foo = batch;
+        
         while let Some(next_cmd) = self.cmd_stream.next().await {
             let (next_cmd, addr) = next_cmd?;
+
+            let new_batch = Some(next_cmd.batch());
+            let mut new_batch_commit = None;
 
             match next_cmd {
                 Command::Open { batch } => {
                     self.record_cmd(next_cmd, addr);
                 },
                 Command::ReadyCommit { batch, batch_commit } => {
+                    new_batch_commit = Some(batch_commit);
                     self.record_cmd(next_cmd, addr);
-                }
+                },
                 Command::AbortCommit { batch, batch_commit } => {
+                    new_batch_commit = Some(batch_commit);
                     self.record_cmd(next_cmd, addr);
-                }
+                },
                 Command::Close { batch } => {
                     self.record_cmd(next_cmd, addr);
-                }
+                },
                 _ => {
                     self.record_cmd(next_cmd, addr);
-                }
+                },
             }
+
+            self.update_max_batch_and_batch_commit(new_batch, new_batch_commit);
         }
 
         Ok(())
@@ -73,6 +86,28 @@ impl<'tree> InitReplayer<'tree> {
 
     fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
         panic!()
+    }
+
+    fn update_max_batch_and_batch_commit(&mut self, new_batch: Option<Batch>, new_batch_commit: Option<BatchCommit>) {
+        match (self.max_batch_seen, new_batch) {
+            (None, new_batch) => {
+                self.max_batch_seen = new_batch;
+            },
+            (Some(curr_max_batch), Some(new_batch)) => {
+                self.max_batch_seen = Some(Batch(curr_max_batch.0.max(new_batch.0)));
+            },
+            (Some(_), None) => { }
+        }
+
+        match (self.max_batch_commit_seen, new_batch_commit) {
+            (None, new_batch_commit) => {
+                self.max_batch_commit_seen = new_batch_commit;
+            },
+            (Some(curr_max_batch_commit), Some(new_max_batch_commit)) => {
+                self.max_batch_commit_seen = Some(BatchCommit(curr_max_batch_commit.0.max(new_max_batch_commit.0)));
+            },
+            (Some(_), None) => { }
+        }
     }
 
     pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
