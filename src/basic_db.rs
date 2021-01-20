@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use crate::tree::{self, Tree};
 use anyhow::{Result, Context, anyhow};
 use crate::types::{Batch, BatchCommit, Commit, Key, Value};
+use crate::commit_log::CommitLog;
 
 pub struct Db {
     config: DbConfig,
@@ -15,6 +16,7 @@ pub struct Db {
     view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
     trees: Arc<BTreeMap<String, Tree>>,
+    commit_log: Arc<CommitLog>,
 }
 
 pub struct DbConfig {
@@ -29,6 +31,7 @@ pub struct BatchWriter {
     next_commit: Arc<AtomicU64>,
     view_commit_limit: Arc<AtomicU64>,
     commit_lock: Arc<Mutex<()>>,
+    commit_log: Arc<CommitLog>,
 }
 
 pub struct ViewReader {
@@ -56,6 +59,7 @@ impl Db {
             next_commit: self.next_commit.clone(),
             view_commit_limit: self.view_commit_limit.clone(),
             commit_lock: self.commit_lock.clone(),
+            commit_log: self.commit_log.clone(),
         }
     }
 
@@ -132,7 +136,7 @@ impl BatchWriter {
 
         // Write the master commit.
         // If this fails then the commit is effectively aborted.
-        self.write_master_commit(&commit_lock, commit, batch_commit).await?;
+        self.write_commit(&commit_lock, commit, batch_commit).await?;
 
         // Infallably promote each tree's writes to its index.
         for (tree, writer) in self.batch_writers.iter() {
@@ -147,8 +151,8 @@ impl BatchWriter {
         Ok(())
     }
 
-    async fn write_master_commit(&self, _commit_lock: &MutexGuard<'_, ()>, commit: Commit, batch_commit: BatchCommit) -> Result<()> {
-        panic!()
+    async fn write_commit(&self, _commit_lock: &MutexGuard<'_, ()>, commit: Commit, batch_commit: BatchCommit) -> Result<()> {
+        Ok(self.commit_log.commit(commit, batch_commit).await?)
     }
 
     pub async fn close(self, tree: &str) -> Result<()> {

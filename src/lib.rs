@@ -3,6 +3,7 @@
 mod basic_db;
 mod batch_player;
 mod command;
+mod commit_log;
 mod frame;
 mod fs_thread;
 mod index;

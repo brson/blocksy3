@@ -30,6 +30,7 @@ pub struct BatchCommit(pub u64);
 #[derive(Copy, Clone)]
 pub struct View(pub u64);
 
+#[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Copy, Clone)]
 pub struct Commit(pub u64);
