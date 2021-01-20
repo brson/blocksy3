@@ -47,9 +47,8 @@ impl<'tree> InitReplayer<'tree> {
                                batch_commit: BatchCommit,
                                commit: Commit) -> Result<()> {
 
-        let target_bach = batch;
+        let target_batch = batch;
         let target_batch_commit = batch_commit;
-        let foo = batch;
         
         while let Some(next_cmd) = self.cmd_stream.next().await {
             let (next_cmd, addr) = next_cmd?;
@@ -81,13 +80,53 @@ impl<'tree> InitReplayer<'tree> {
                     new_batch_commit = Some(batch_commit);
                     self.record_cmd(next_cmd, addr)?;
 
-                    let batch_player = self.batch_players.get(&batch).expect("batch");
+                    let is_target_batch = target_batch == batch;
+                    let is_target_batch_commit = target_batch_commit == batch_commit;
+                    let bad_batch_combo = is_target_batch ^ is_target_batch_commit;
 
-                    commit_to_index(&batch_player, &self.index, batch, batch_commit, commit);
+                    if bad_batch_combo {
+                        bail!(BATCH_MISMATCH);
+                    }
+
+                    let must_commit = is_target_batch && is_target_batch_commit;
+
+                    if must_commit {
+                        let batch_player = self.batch_players.get(&batch).expect("batch");
+                        commit_to_index(&batch_player, &self.index, batch, batch_commit, commit);
+                        return Ok(());
+                    } else {
+                        // This ready-commit log happend out-of-order
+                        // of the final commit.
+                        // It will be committed later,
+                        // so have it to the side.
+                        panic!() // TODO
+                    }
                 },
                 Command::AbortCommit { batch, batch_commit } => {
                     new_batch_commit = Some(batch_commit);
                     self.record_cmd(next_cmd, addr)?;
+
+                    let is_target_batch = target_batch == batch;
+                    let is_target_batch_commit = target_batch_commit == batch_commit;
+                    let bad_batch_combo = is_target_batch ^ is_target_batch_commit;
+
+                    if bad_batch_combo {
+                        bail!(BATCH_MISMATCH);
+                    }
+
+                    let must_commit = is_target_batch && is_target_batch_commit;
+
+                    if must_commit {
+                        // Nothing to commit on abort,
+                        // but other trees may have committed.
+                        return Ok(());
+                    } else {
+                        // This ready-commit log happend out-of-order
+                        // of the final commit.
+                        // It will be committed later,
+                        // so have it to the side.
+                        panic!() // TODO
+                    }
                 },
                 _ => {
                     self.record_cmd(next_cmd, addr)?;
@@ -98,6 +137,10 @@ impl<'tree> InitReplayer<'tree> {
         }
 
         Ok(())
+    }
+
+    pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
+        panic!()
     }
 
     fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
@@ -124,10 +167,6 @@ impl<'tree> InitReplayer<'tree> {
             },
             (Some(_), None) => { }
         }
-    }
-
-    pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
-        panic!()
     }
 
     pub fn init_success(mut self) {
@@ -279,6 +318,7 @@ impl BatchWriter {
                         commit)                        
     }
 
+    /// NB: This must only be called after the batch is committed
     pub async fn close(&self) -> Result<()> {
         let res = self.append_record(Command::Close {
             batch: self.batch,
@@ -381,3 +421,4 @@ impl Cursor {
 }
 
 static UNEXPECTED_LOG: &'static str = "unexpected command in log";
+static BATCH_MISMATCH: &'static str = "mismatch in batch/batch_commit between commit log and tree log";

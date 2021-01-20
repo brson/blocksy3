@@ -194,6 +194,7 @@ impl BatchWriter {
         Ok(self.commit_log.commit(self.batch, batch_commit, commit).await?)
     }
 
+    /// NB: This must be called after the batch is committed
     pub async fn close(self, tree: &str) -> Result<()> {
         let writer = self.tree_writer(tree);
         Ok(writer.close().await?)
