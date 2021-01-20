@@ -22,7 +22,7 @@ impl CommitLog {
         CommitLog { log }
     }
 
-    pub fn replay(&self) -> impl Stream<Item = Result<CommitCommand>> {
+    pub fn replay(&self) -> impl Stream<Item = Result<CommitCommand>> + Unpin {
         self.log.replay().map(|r| r.map(|(cmd, _)| cmd))
     }
 

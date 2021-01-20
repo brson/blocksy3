@@ -21,10 +21,10 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
         }
     }
 
-    pub fn replay(&self) -> impl Stream<Item = Result<(Cmd, Address)>> {
+    pub fn replay(&self) -> impl Stream<Item = Result<(Cmd, Address)>> + Unpin {
         let addr = Address(0);
         let state = Some((self.log_file.clone(), addr));
-        stream::unfold(state, |state| async {
+        Box::pin(stream::unfold(state, |state| async {
             match state {
                 Some((log_file, addr)) => {
                     let cmd = log_file.read_at(addr).await;
@@ -45,7 +45,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
                     None
                 }
             }
-        })
+        }))
     }
 
     pub async fn append(&self, cmd: Cmd) -> Result<Address> {
