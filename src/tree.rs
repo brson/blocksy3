@@ -38,6 +38,10 @@ impl Tree {
     }
 
     pub async fn init(&self) -> Result<()> {
+        assert!(!self.initialized.load(Ordering::SeqCst));
+
+        panic!();
+        
         self.initialized.store(false, Ordering::SeqCst);
         panic!();
     }

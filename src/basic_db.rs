@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::sync::Arc;
 use std::collections::BTreeMap;
@@ -6,10 +6,12 @@ use std::path::PathBuf;
 use crate::tree::{self, Tree};
 use anyhow::{Result, Context, anyhow};
 use crate::types::{Batch, BatchCommit, Commit, Key, Value};
-use crate::commit_log::CommitLog;
+use crate::commit_log::{CommitLog, CommitCommand};
+use crate::command::Command;
+use crate::log::Log;
 
 pub struct Db {
-    config: DbConfig,
+    initialized: AtomicBool,
     next_batch: AtomicU64,
     next_batch_commit: Arc<AtomicU64>,
     next_commit: Arc<AtomicU64>,
@@ -17,11 +19,6 @@ pub struct Db {
     commit_lock: Arc<Mutex<()>>,
     trees: Arc<BTreeMap<String, Tree>>,
     commit_log: Arc<CommitLog>,
-}
-
-pub struct DbConfig {
-    dir: PathBuf,
-    trees: Vec<String>,
 }
 
 pub struct BatchWriter {
@@ -44,7 +41,38 @@ pub struct Cursor {
 }
 
 impl Db {
+    pub fn new(tree_logs: BTreeMap<String, Log<Command>>, commit_log: Log<CommitCommand>) -> Db {
+        let trees = tree_logs.into_iter().map(|(tree_name, log)| {
+            (tree_name, Tree::new(log))
+        }).collect();
+        let trees = Arc::new(trees);
+
+        let commit_log = Arc::new(CommitLog::new(commit_log));
+
+        Db {
+            initialized: AtomicBool::new(false),
+            next_batch: AtomicU64::new(0),
+            next_batch_commit: Arc::new(AtomicU64::new(0)),
+            next_commit: Arc::new(AtomicU64::new(0)),
+            view_commit_limit: Arc::new(AtomicU64::new(0)),
+            commit_lock: Arc::new(Mutex::new(())),
+            trees,
+            commit_log,
+        }
+    }
+
+    pub async fn init(&self) -> Result<()> {
+        assert!(!self.initialized.load(Ordering::SeqCst));
+
+        panic!();
+        
+        self.initialized.store(false, Ordering::SeqCst);
+        panic!();
+    }
+
     pub fn batch(&self) -> BatchWriter {
+        assert!(self.initialized.load(Ordering::SeqCst));
+
         let batch = Batch(self.next_batch.fetch_add(1, Ordering::SeqCst));
         assert_ne!(batch.0, u64::max_value());
 
@@ -64,6 +92,8 @@ impl Db {
     }
 
     pub fn view(&self) -> ViewReader {
+        assert!(self.initialized.load(Ordering::SeqCst));
+
         let commit_limit = Commit(self.view_commit_limit.load(Ordering::SeqCst));
 
         ViewReader {
