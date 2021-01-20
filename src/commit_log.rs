@@ -22,8 +22,9 @@ impl CommitLog {
         CommitLog { log }
     }
 
-    //pub async fn replay(&self) -> impl Stream<Item = Result<(CommitCommand)> {
-    //}
+    pub fn replay(&self) -> impl Stream<Item = Result<(CommitCommand)>> {
+        self.log.replay().map(|r| r.map(|(cmd, _)| cmd))
+    }
 
     pub async fn commit(&self, batch: Batch, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
         self.log.append(CommitCommand::Commit {

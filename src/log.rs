@@ -21,7 +21,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
         }
     }
 
-    pub async fn replay(&self) -> impl Stream<Item = Result<(Cmd, Address)>> {
+    pub fn replay(&self) -> impl Stream<Item = Result<(Cmd, Address)>> {
         let addr = Address(0);
         let state = Some((self.log_file.clone(), addr));
         stream::unfold(state, |state| async {
