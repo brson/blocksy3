@@ -8,7 +8,7 @@ pub struct CommitLog {
 }
 
 #[derive(Serialize, Deserialize)]
-enum CommitCommand {
+pub enum CommitCommand {
     Commit {
         commit: Commit,
         batch_commit: BatchCommit,
