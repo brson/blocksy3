@@ -7,7 +7,7 @@ use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
 use crate::index::{self, Index};
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use futures::{Stream, StreamExt};
 
 pub struct Tree {
@@ -59,21 +59,38 @@ impl<'tree> InitReplayer<'tree> {
 
             match next_cmd {
                 Command::Open { batch } => {
-                    self.record_cmd(next_cmd, addr);
+                    if self.batch_players.contains_key(&batch) {
+                        bail!("redundant batch open during init-replay");
+                    }
+                    self.batch_players.insert(batch, BatchPlayer::new());
+                    self.record_cmd(next_cmd, addr)?;
+                },
+                Command::Close { batch } => {
+                    if !self.batch_players.contains_key(&batch) {
+                        bail!("stray batch close during init-replay");
+                    }
+                    // NB: If close is never logged,
+                    // which is possible but rare,
+                    // then the only impact
+                    // is that the temporary batch replayer here won't
+                    // be deleted until the end of index reconstruction.
+                    self.batch_players.remove(&batch);
+                    self.record_cmd(next_cmd, addr)?;
                 },
                 Command::ReadyCommit { batch, batch_commit } => {
                     new_batch_commit = Some(batch_commit);
-                    self.record_cmd(next_cmd, addr);
+                    self.record_cmd(next_cmd, addr)?;
+
+                    let batch_player = self.batch_players.get(&batch).expect("batch");
+
+                    commit_to_index(&batch_player, &self.index, batch, batch_commit, commit);
                 },
                 Command::AbortCommit { batch, batch_commit } => {
                     new_batch_commit = Some(batch_commit);
-                    self.record_cmd(next_cmd, addr);
-                },
-                Command::Close { batch } => {
-                    self.record_cmd(next_cmd, addr);
+                    self.record_cmd(next_cmd, addr)?;
                 },
                 _ => {
-                    self.record_cmd(next_cmd, addr);
+                    self.record_cmd(next_cmd, addr)?;
                 },
             }
 
@@ -254,22 +271,12 @@ impl BatchWriter {
         }).await?)
     }
 
-    pub fn commit(&self, batch_commit: BatchCommit, commit: Commit) {
-        let index_ops = self.batch_player.replay(self.batch, batch_commit);
-        let mut writer = self.index.writer(commit);
-        for op in index_ops {
-            match op {
-                IndexOp::Write { key, address } => {
-                    writer.write(key, address);
-                },
-                IndexOp::Delete { key, address } => {
-                    writer.delete(key, address);
-                },
-                IndexOp::DeleteRange { start_key, end_key, address } => {
-                    writer.delete_range(start_key..end_key, address);
-                },
-            }
-        }
+    pub fn commit_to_index(&self, batch_commit: BatchCommit, commit: Commit) {
+        commit_to_index(&*self.batch_player,
+                        &*self.index,
+                        self.batch,
+                        batch_commit,
+                        commit)                        
     }
 
     pub async fn close(&self) -> Result<()> {
@@ -289,6 +296,28 @@ impl BatchWriter {
         let address = self.log.append(cmd.clone()).await?;
         self.batch_player.record(&cmd, address);
         Ok(())
+    }
+}
+
+fn commit_to_index(batch_player: &BatchPlayer,
+                   index: &Index,
+                   batch: Batch,
+                   batch_commit: BatchCommit,
+                   commit: Commit) {
+    let index_ops = batch_player.replay(batch, batch_commit);
+    let mut writer = index.writer(commit);
+    for op in index_ops {
+        match op {
+            IndexOp::Write { key, address } => {
+                writer.write(key, address);
+            },
+            IndexOp::Delete { key, address } => {
+                writer.delete(key, address);
+            },
+            IndexOp::DeleteRange { start_key, end_key, address } => {
+                writer.delete_range(start_key..end_key, address);
+            },
+        }
     }
 }
 

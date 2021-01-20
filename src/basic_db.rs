@@ -179,7 +179,7 @@ impl BatchWriter {
 
         // Infallably promote each tree's writes to its index.
         for (tree, writer) in self.batch_writers.iter() {
-            writer.commit(batch_commit, commit)
+            writer.commit_to_index(batch_commit, commit)
         }
 
         // Bump the view commit limit
