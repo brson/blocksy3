@@ -6,6 +6,7 @@ use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
 use crate::index::{self, Index};
 use anyhow::{Result, anyhow};
+use futures::{Stream, StreamExt};
 
 pub struct Tree {
     initialized: AtomicBool,
@@ -37,7 +38,7 @@ impl Tree {
         }
     }
 
-    pub async fn init(&self) -> Result<()> {
+    pub fn init_replayer(&self) -> Result<()> {
         assert!(!self.initialized.load(Ordering::SeqCst));
 
         panic!();

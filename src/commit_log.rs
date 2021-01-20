@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::log::Log;
 use crate::types::{Commit, BatchCommit, Batch};
-use futures::{stream, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use anyhow::Result;
 
 pub struct CommitLog {
@@ -22,7 +22,7 @@ impl CommitLog {
         CommitLog { log }
     }
 
-    pub fn replay(&self) -> impl Stream<Item = Result<(CommitCommand)>> {
+    pub fn replay(&self) -> impl Stream<Item = Result<CommitCommand>> {
         self.log.replay().map(|r| r.map(|(cmd, _)| cmd))
     }
 
