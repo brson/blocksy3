@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::log::Log;
-use crate::types::{Commit, BatchCommit};
+use crate::types::{Commit, BatchCommit, Batch};
 use anyhow::Result;
 
 pub struct CommitLog {
@@ -10,8 +10,9 @@ pub struct CommitLog {
 #[derive(Serialize, Deserialize)]
 pub enum CommitCommand {
     Commit {
-        commit: Commit,
+        batch: Batch,
         batch_commit: BatchCommit,
+        commit: Commit,
     }
 }
 
@@ -20,9 +21,9 @@ impl CommitLog {
         CommitLog { log }
     }
 
-    pub async fn commit(&self, commit: Commit, batch_commit: BatchCommit) -> Result<()> {
+    pub async fn commit(&self, batch: Batch, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
         self.log.append(CommitCommand::Commit {
-            commit, batch_commit,
+            batch, batch_commit, commit
         }).await?;
 
         Ok(())

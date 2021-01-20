@@ -66,8 +66,9 @@ impl Db {
 
         panic!();
         
-        self.initialized.store(false, Ordering::SeqCst);
-        panic!();
+        self.initialized.store(true, Ordering::SeqCst);
+
+        Ok(())
     }
 
     pub fn batch(&self) -> BatchWriter {
@@ -166,7 +167,7 @@ impl BatchWriter {
 
         // Write the master commit.
         // If this fails then the commit is effectively aborted.
-        self.write_commit(&commit_lock, commit, batch_commit).await?;
+        self.write_commit(&commit_lock, batch_commit, commit).await?;
 
         // Infallably promote each tree's writes to its index.
         for (tree, writer) in self.batch_writers.iter() {
@@ -181,8 +182,8 @@ impl BatchWriter {
         Ok(())
     }
 
-    async fn write_commit(&self, _commit_lock: &MutexGuard<'_, ()>, commit: Commit, batch_commit: BatchCommit) -> Result<()> {
-        Ok(self.commit_log.commit(commit, batch_commit).await?)
+    async fn write_commit(&self, _commit_lock: &MutexGuard<'_, ()>, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
+        Ok(self.commit_log.commit(self.batch, batch_commit, commit).await?)
     }
 
     pub async fn close(self, tree: &str) -> Result<()> {

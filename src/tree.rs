@@ -42,8 +42,9 @@ impl Tree {
 
         panic!();
         
-        self.initialized.store(false, Ordering::SeqCst);
-        panic!();
+        self.initialized.store(true, Ordering::SeqCst);
+
+        Ok(())
     }
 
     pub fn batch(&self, batch: Batch) -> BatchWriter {
