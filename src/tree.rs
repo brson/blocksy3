@@ -1,5 +1,5 @@
 use std::pin::Pin;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use crate::types::{Batch, BatchCommit, Commit, Key, Value, Address};
@@ -38,6 +38,7 @@ pub struct InitReplayer<'tree> {
     previous_commit: Option<Commit>,
     max_batch_seen: Option<Batch>,
     max_batch_commit_seen: Option<BatchCommit>,
+    waiting_to_commit: BTreeSet<(Batch, BatchCommit)>,
     init_success: bool,
 }
 
@@ -99,7 +100,11 @@ impl<'tree> InitReplayer<'tree> {
                         // of the final commit.
                         // It will be committed later,
                         // so have it to the side.
-                        panic!() // TODO
+                        if self.waiting_to_commit.contains(&(batch, batch_commit)) {
+                            bail!(DUPLICATE_BATCH_COMMIT);
+                        } else {
+                            self.waiting_to_commit.insert((batch, batch_commit));
+                        }
                     }
                 },
                 Command::AbortCommit { batch, batch_commit } => {
@@ -125,7 +130,11 @@ impl<'tree> InitReplayer<'tree> {
                         // of the final commit.
                         // It will be committed later,
                         // so have it to the side.
-                        panic!() // TODO
+                        if self.waiting_to_commit.contains(&(batch, batch_commit)) {
+                            bail!(DUPLICATE_BATCH_COMMIT);
+                        } else {
+                            self.waiting_to_commit.insert((batch, batch_commit));
+                        }
                     }
                 },
                 _ => {
@@ -136,7 +145,8 @@ impl<'tree> InitReplayer<'tree> {
             self.update_max_batch_and_batch_commit(new_batch, new_batch_commit);
         }
 
-        Ok(())
+        bail!("commit not found for batch {} / batch-commit {} / commit {}",
+              target_batch.0, target_batch_commit.0, commit.0);
     }
 
     pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
@@ -201,6 +211,7 @@ impl Tree {
             previous_commit: None,
             max_batch_seen: None,
             max_batch_commit_seen: None,
+            waiting_to_commit: BTreeSet::new(),
             init_success: false,
         }
     }
@@ -421,4 +432,5 @@ impl Cursor {
 }
 
 static UNEXPECTED_LOG: &'static str = "unexpected command in log";
-static BATCH_MISMATCH: &'static str = "mismatch in batch/batch_commit between commit log and tree log";
+static BATCH_MISMATCH: &'static str = "mismatch in batch / batch_commit between commit log and tree log";
+static DUPLICATE_BATCH_COMMIT: &'static str = "duplicate batch / batch_ commit during replay";
