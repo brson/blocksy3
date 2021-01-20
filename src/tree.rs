@@ -1,3 +1,4 @@
+use std::pin::Pin;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -31,7 +32,7 @@ pub struct Cursor {
 
 pub struct InitReplayer<'tree> {
     initialized: &'tree AtomicBool,
-    log_player: Box<dyn Stream<Item = Result<(Command, Address)>>>,
+    cmd_stream: Pin<Box<dyn Stream<Item = Result<(Command, Address)>>>>,
     index: &'tree Index,
     batch_players: BTreeMap<Batch, BatchPlayer>,
     previous_commit: Option<Commit>,
@@ -45,6 +46,32 @@ impl<'tree> InitReplayer<'tree> {
                                batch: Batch,
                                batch_commit: BatchCommit,
                                commit: Commit) -> Result<()> {
+        while let Some(next_cmd) = self.cmd_stream.next().await {
+            let (next_cmd, addr) = next_cmd?;
+
+            match next_cmd {
+                Command::Open { batch } => {
+                    self.record_cmd(next_cmd, addr);
+                },
+                Command::ReadyCommit { batch, batch_commit } => {
+                    self.record_cmd(next_cmd, addr);
+                }
+                Command::AbortCommit { batch, batch_commit } => {
+                    self.record_cmd(next_cmd, addr);
+                }
+                Command::Close { batch } => {
+                    self.record_cmd(next_cmd, addr);
+                }
+                _ => {
+                    self.record_cmd(next_cmd, addr);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
         panic!()
     }
 
@@ -78,7 +105,7 @@ impl Tree {
 
         InitReplayer {
             initialized: &self.initialized,
-            log_player: Box::new(self.log.replay()),
+            cmd_stream: Box::pin(self.log.replay()),
             index: &*self.index,
             batch_players: BTreeMap::new(),
             previous_commit: None,

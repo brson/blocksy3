@@ -44,3 +44,22 @@ pub enum Command {
     },
 }
 
+impl Command {
+    fn batch(&self) -> Batch {
+        use Command::*;
+        match self {
+            Open { batch }
+            | Write { batch, .. }
+            | Delete { batch, .. }
+            | DeleteRange { batch, .. }
+            | PushSavePoint { batch, .. }
+            | PopSavePoint { batch, .. }
+            | RollbackSavePoint { batch, .. }
+            | ReadyCommit { batch, .. }
+            | AbortCommit { batch, .. }
+            | Close { batch } => {
+                *batch
+            }
+        }
+    }
+}
