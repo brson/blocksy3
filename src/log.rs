@@ -1,23 +1,27 @@
+use serde::{Serialize, Deserialize};
 use anyhow::Result;
 use futures::{stream, Stream, StreamExt};
 use std::sync::Arc;
 
 use crate::log_file::LogFile;
 use crate::types::Address;
-use crate::command::Command;
 
-pub struct Log {
-    log_file: Arc<LogFile<Command>>,
+pub struct Log<Cmd>
+where Cmd: Serialize + for <'de> Deserialize<'de>
+{
+    log_file: Arc<LogFile<Cmd>>,
 }
 
-impl Log {
-    pub fn new(log_file: LogFile<Command>) -> Log {
+impl<Cmd> Log<Cmd>
+where Cmd: Serialize + for <'de> Deserialize<'de>
+{
+    pub fn new(log_file: LogFile<Cmd>) -> Log<Cmd> {
         Log {
             log_file: Arc::new(log_file),
         }
     }
 
-    pub async fn replay(&self) -> impl Stream<Item = Result<(Command, Address)>> {
+    pub async fn replay(&self) -> impl Stream<Item = Result<(Cmd, Address)>> {
         let addr = Address(0);
         let state = Some((self.log_file.clone(), addr));
         stream::unfold(state, |state| async {
@@ -44,11 +48,11 @@ impl Log {
         })
     }
 
-    pub async fn append(&self, cmd: Command) -> Result<Address> {
+    pub async fn append(&self, cmd: Cmd) -> Result<Address> {
         Ok(self.log_file.append(cmd).await?)
     }
 
-    pub async fn read_at(&self, address: Address) -> Result<Command> {
+    pub async fn read_at(&self, address: Address) -> Result<Cmd> {
         Ok(self.log_file.read_at(address).await
            .map(|(cmd, _)| cmd)?)
     }

@@ -7,20 +7,20 @@ use crate::index::{self, Index};
 use anyhow::{Result, anyhow};
 
 pub struct Tree {
-    log: Arc<Log>,
+    log: Arc<Log<Command>>,
     batch_player: Arc<BatchPlayer>,
     index: Arc<Index>,
 }
 
 pub struct BatchWriter {
     batch: Batch,
-    log: Arc<Log>,
+    log: Arc<Log<Command>>,
     batch_player: Arc<BatchPlayer>,
     index: Arc<Index>,
 }
 
 pub struct Cursor {
-    log: Arc<Log>,
+    log: Arc<Log<Command>>,
     index_cursor: index::Cursor,
     value: Option<Value>,
 }
