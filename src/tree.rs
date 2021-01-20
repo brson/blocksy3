@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 use crate::command::Command;
@@ -7,6 +8,7 @@ use crate::index::{self, Index};
 use anyhow::{Result, anyhow};
 
 pub struct Tree {
+    initialized: AtomicBool,
     log: Arc<Log<Command>>,
     batch_player: Arc<BatchPlayer>,
     index: Arc<Index>,
@@ -26,7 +28,23 @@ pub struct Cursor {
 }
 
 impl Tree {
+    pub fn new(log: Log<Command>) -> Tree {
+        Tree {
+            initialized: AtomicBool::new(false),
+            log: Arc::new(log),
+            batch_player: Arc::new(BatchPlayer::new()),
+            index: Arc::new(Index::new()),
+        }
+    }
+
+    pub async fn init(&self) -> Result<()> {
+        self.initialized.store(false, Ordering::SeqCst);
+        panic!();
+    }
+
     pub fn batch(&self, batch: Batch) -> BatchWriter {
+        assert!(self.initialized.load(Ordering::SeqCst));
+
         BatchWriter {
             batch,
             log: self.log.clone(),
@@ -36,6 +54,8 @@ impl Tree {
     }
 
     pub async fn read(&self, commit_limit: Commit, key: &Key) -> Result<Option<Value>> {
+        assert!(self.initialized.load(Ordering::SeqCst));
+
         let addr = self.index.read(commit_limit, key);
 
         if let Some(addr) = addr {
@@ -55,6 +75,8 @@ impl Tree {
     }
 
     pub fn cursor(&self, commit_limit: Commit) -> Cursor {
+        assert!(self.initialized.load(Ordering::SeqCst));
+
         Cursor {
             log: self.log.clone(),
             index_cursor: self.index.cursor(commit_limit),

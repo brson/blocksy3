@@ -53,7 +53,7 @@ pub enum IndexOp {
 }
 
 impl BatchPlayer {
-    fn new() -> BatchPlayer {
+    pub fn new() -> BatchPlayer {
         BatchPlayer {
             batches: Mutex::new(BTreeMap::new()),
         }
