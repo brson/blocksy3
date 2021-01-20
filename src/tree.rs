@@ -34,7 +34,9 @@ pub struct InitReplayer<'tree> {
     log: &'tree Log<Command>,
     index: &'tree Index,
     batch_players: BTreeMap<Batch, BatchPlayer>,
-    last_commit: Option<Commit>,
+    previous_commit: Option<Commit>,
+    max_batch_seen: Option<Batch>,
+    max_batch_commit_seen: Option<BatchCommit>,
     init_success: bool,
 }
 
@@ -43,6 +45,10 @@ impl<'tree> InitReplayer<'tree> {
                                batch: Batch,
                                batch_commit: BatchCommit,
                                commit: Commit) -> Result<()> {
+        panic!()
+    }
+
+    pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
         panic!()
     }
 
@@ -75,7 +81,9 @@ impl Tree {
             log: &*self.log,
             index: &*self.index,
             batch_players: BTreeMap::new(),
-            last_commit: None,
+            previous_commit: None,
+            max_batch_seen: None,
+            max_batch_commit_seen: None,
             init_success: false,
         }
     }

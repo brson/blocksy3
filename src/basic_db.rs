@@ -67,10 +67,12 @@ impl Db {
 
         let init_state = loader::load(&self.commit_log, &self.trees).await?;
 
-        self.next_batch.store(init_state.next_batch, Ordering::SeqCst);
-        self.next_batch_commit.store(init_state.next_batch_commit, Ordering::SeqCst);
-        self.next_commit.store(init_state.next_commit, Ordering::SeqCst);
-        self.view_commit_limit.store(init_state.view_commit_limit, Ordering::SeqCst);
+        let view_commit_limit = init_state.next_commit.0.checked_add(1).expect("overflow");
+
+        self.next_batch.store(init_state.next_batch.0, Ordering::SeqCst);
+        self.next_batch_commit.store(init_state.next_batch_commit.0, Ordering::SeqCst);
+        self.next_commit.store(init_state.next_commit.0, Ordering::SeqCst);
+        self.view_commit_limit.store(view_commit_limit, Ordering::SeqCst);
         
         self.initialized.store(true, Ordering::SeqCst);
 
