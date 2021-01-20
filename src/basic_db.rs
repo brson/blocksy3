@@ -9,6 +9,7 @@ use crate::types::{Batch, BatchCommit, Commit, Key, Value};
 use crate::commit_log::{CommitLog, CommitCommand};
 use crate::command::Command;
 use crate::log::Log;
+use crate::loader;
 
 pub struct Db {
     initialized: AtomicBool,
@@ -64,7 +65,12 @@ impl Db {
     pub async fn init(&self) -> Result<()> {
         assert!(!self.initialized.load(Ordering::SeqCst));
 
-        panic!();
+        let init_state = loader::load(&self.commit_log, &self.trees).await?;
+
+        self.next_batch.store(init_state.next_batch, Ordering::SeqCst);
+        self.next_batch_commit.store(init_state.next_batch_commit, Ordering::SeqCst);
+        self.next_commit.store(init_state.next_commit, Ordering::SeqCst);
+        self.view_commit_limit.store(init_state.view_commit_limit, Ordering::SeqCst);
         
         self.initialized.store(true, Ordering::SeqCst);
 

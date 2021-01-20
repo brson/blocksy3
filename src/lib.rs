@@ -7,6 +7,7 @@ mod commit_log;
 mod frame;
 mod fs_thread;
 mod index;
+mod loader;
 mod log;
 mod log_file;
 mod simple_log_file;
