@@ -9,12 +9,10 @@ pub struct CommitLog {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum CommitCommand {
-    Commit {
-        batch: Batch,
-        batch_commit: BatchCommit,
-        commit: Commit,
-    }
+pub struct CommitCommand {
+    pub batch: Batch,
+    pub batch_commit: BatchCommit,
+    pub commit: Commit,
 }
 
 impl CommitLog {
@@ -27,7 +25,7 @@ impl CommitLog {
     }
 
     pub async fn commit(&self, batch: Batch, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
-        self.log.append(CommitCommand::Commit {
+        self.log.append(CommitCommand {
             batch, batch_commit, commit
         }).await?;
 

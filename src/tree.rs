@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use crate::types::{Batch, BatchCommit, Commit, Key, Value};
@@ -29,7 +30,31 @@ pub struct Cursor {
 }
 
 pub struct InitReplayer<'tree> {
-    tree: &'tree Tree,
+    initialized: &'tree AtomicBool,
+    log: &'tree Log<Command>,
+    index: &'tree Index,
+    batch_players: BTreeMap<Batch, BatchPlayer>,
+    last_commit: Option<Commit>,
+    init_success: bool,
+}
+
+impl<'tree> InitReplayer<'tree> {
+    pub async fn replay_commit(&mut self,
+                               batch: Batch,
+                               batch_commit: BatchCommit,
+                               commit: Commit) -> Result<()> {
+        panic!()
+    }
+
+    pub fn init_success(mut self) {
+        self.init_success = true
+    }
+}
+
+impl<'tree> Drop for InitReplayer<'tree> {
+    fn drop(&mut self) {
+        self.initialized.store(self.init_success, Ordering::SeqCst);
+    }
 }
 
 impl Tree {
@@ -45,14 +70,13 @@ impl Tree {
     pub fn init_replayer(&self) -> InitReplayer {
         assert!(!self.initialized.load(Ordering::SeqCst));
 
-        impl<'tree> Drop for InitReplayer<'tree> {
-            fn drop(&mut self) {
-                self.tree.initialized.store(true, Ordering::SeqCst);
-            }
-        }
-
         InitReplayer {
-            tree: &self,
+            initialized: &self.initialized,
+            log: &*self.log,
+            index: &*self.index,
+            batch_players: BTreeMap::new(),
+            last_commit: None,
+            init_success: false,
         }
     }
 
