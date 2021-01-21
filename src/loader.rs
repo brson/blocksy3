@@ -17,6 +17,12 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
     while let Some(next_commit) = commit_replay_stream.next().await {
         let next_commit = next_commit?;
 
+        // FIXME: If a tree doesn't participate in a batch,
+        // then this will not work as expected and eat
+        // a bunch of memory.
+        // Fix for this is to do ready-commit under its
+        // own lock so that it is serialized.
+        panic!("fixme");
         for (_, player) in tree_players.iter_mut() {
             player.replay_commit(next_commit.batch,
                                  next_commit.batch_commit,
