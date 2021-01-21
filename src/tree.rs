@@ -164,7 +164,11 @@ impl<'tree> InitReplayer<'tree> {
     }
 
     fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
-        panic!()
+        let batch = cmd.batch();
+        let batch_player = self.batch_players.get(&batch)
+            .ok_or_else(|| anyhow!("command replay before batch opened"))?;
+        batch_player.record(&cmd, addr);
+        Ok(())
     }
 
     fn update_max_batch_and_batch_commit(&mut self, new_batch: Option<Batch>, new_batch_commit: Option<BatchCommit>) {
