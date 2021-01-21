@@ -24,7 +24,7 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
         }
 
         if let Some(max_commit) = max_commit {
-            if !(max_commit < next_commit) {
+            if !(max_commit < next_commit.commit) {
                 bail!("non-monotonic commit number");
             }
         }
