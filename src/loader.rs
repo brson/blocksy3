@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 use crate::commit_log::{CommitLog, CommitCommand};
 use crate::tree::Tree;
@@ -21,6 +21,12 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
             player.replay_commit(next_commit.batch,
                                  next_commit.batch_commit,
                                  next_commit.commit).await?;
+        }
+
+        if let Some(max_commit) = max_commit {
+            if !(max_commit < next_commit) {
+                bail!("non-monotonic commit number");
+            }
         }
 
         max_commit = Some(next_commit.commit);
