@@ -160,7 +160,26 @@ impl<'tree> InitReplayer<'tree> {
     }
 
     pub async fn replay_rest(&mut self) -> Result<(Option<Batch>, Option<BatchCommit>)> {
-        panic!()
+        while let Some(next_cmd) = self.cmd_stream.next().await {
+            let (next_cmd, addr) = next_cmd?;
+
+            let new_batch = Some(next_cmd.batch());
+            let mut new_batch_commit = None;
+
+            match next_cmd {
+                Command::ReadyCommit { batch, batch_commit } => {
+                    new_batch_commit = Some(batch_commit);
+                },
+                Command::AbortCommit { batch, batch_commit } => {
+                    new_batch_commit = Some(batch_commit);
+                },
+                _ => { },
+            }
+
+            self.update_max_batch_and_batch_commit(new_batch, new_batch_commit);
+        }
+
+        Ok((self.max_batch_seen, self.max_batch_commit_seen))
     }
 
     fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
