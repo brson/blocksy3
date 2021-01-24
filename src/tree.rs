@@ -109,6 +109,10 @@ impl Tree {
             value: None,
         }
     }
+
+    pub async fn sync(&self) -> Result<()> {
+        Ok(self.log.sync().await?)
+    }
 }
 
 impl BatchWriter {

@@ -105,6 +105,10 @@ impl Db {
         self.inner.sync().await?;
 
         // Also need to sync the directory
+        if let Some(dir) = &self.dir_handle {
+            // FIXME async
+            dir.sync_all()?;
+        }
 
         Ok(())
     }

@@ -56,4 +56,8 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
         Ok(self.log_file.read_at(address).await
            .map(|(cmd, _)| cmd)?)
     }
+
+    pub async fn sync(&self) -> Result<()> {
+        Ok(self.log_file.sync().await?)
+    }
 }

@@ -112,7 +112,11 @@ impl Db {
     }
 
     pub async fn sync(&self) -> Result<()> {
-        panic!();
+        for (_, tree) in self.trees.iter() {
+            tree.sync().await?;
+        }
+
+        Ok(())
     }
 }
 

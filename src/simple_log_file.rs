@@ -16,6 +16,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
     let path = Arc::new(path);
     let state1 = Arc::new(State { path, fs_thread });
     let state2 = state1.clone();
+    let state3 = state1.clone();
 
     let append_impl: Box<dyn Fn(Cmd) -> BoxFuture<'static, Result<Address>> + Send + Sync> = {
         Box::new(move |cmd| {
@@ -27,10 +28,16 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
             Box::pin(read_at(state2.clone(), addr))
         })
     };
+    let sync_impl: Box<dyn Fn() -> BoxFuture<'static, Result<()>> + Send + Sync> = {
+        Box::new(move || {
+            Box::pin(sync(state3.clone()))
+        })
+    };
 
     LogFile {
         append: append_impl,
         read_at: read_at_impl,
+        sync: sync_impl,
     }
 }
 
@@ -71,6 +78,16 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
             None
         };
         Ok((cmd, next_addr))
+    });
+    Ok(future.await?)
+}
+
+async fn sync(state: Arc<State>) -> Result<()> {
+    let path = state.path.clone();
+    let future = state.fs_thread.run(move |ctx| -> Result<_> {
+        let file = ctx.open_append(&path)?;
+        file.sync_all()?;
+        Ok(())
     });
     Ok(future.await?)
 }
