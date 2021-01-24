@@ -8,7 +8,6 @@ pub type DbConfig = imp::DbConfig;
 pub struct Db(imp::Db);
 
 pub struct WriteBatch(imp::WriteBatch);
-#[derive(Clone)]
 pub struct ReadView(imp::ReadView);
 pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
 pub struct ReadTree<'view>(imp::ReadTree<'view>);

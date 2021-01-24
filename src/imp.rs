@@ -16,16 +16,25 @@ pub struct Db {
     config: Arc<DbConfig>,
 }
 
-pub struct WriteBatch;
+pub struct WriteBatch {
+    inner: bdb::BatchWriter,
+}
 
-#[derive(Clone)]
-pub struct ReadView;
+pub struct ReadView {
+    inner: bdb::ViewReader,
+}
 
-pub struct WriteTree<'batch>(std::marker::PhantomData<&'batch ()>);
+pub struct WriteTree<'batch> {
+    batch: &'batch WriteBatch,
+}
 
-pub struct ReadTree<'view>(std::marker::PhantomData<&'view ()>);
+pub struct ReadTree<'view> {
+    view: &'view ReadView,
+}
 
-pub struct Cursor;
+pub struct Cursor {
+    inner: bdb::Cursor,
+}
 
 impl Db {
     pub async fn open(config: DbConfig) -> Result<Db> {
