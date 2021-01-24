@@ -110,6 +110,10 @@ impl Db {
             trees: self.trees.clone(),
         }
     }
+
+    pub async fn sync(&self) -> Result<()> {
+        panic!();
+    }
 }
 
 impl BatchWriter {

@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, File};
 use std::collections::BTreeMap;
 use anyhow::Result;
 use std::sync::Arc;
@@ -20,6 +20,7 @@ pub struct DbConfig {
 pub struct Db {
     config: Arc<DbConfig>,
     inner: Arc<bdb::Db>,
+    dir_handle: Option<Arc<File>>, // Unix only
 }
 
 pub struct WriteBatch {
@@ -49,9 +50,17 @@ impl Db {
         let db = bdb::Db::new(tree_logs, commit_log);
         db.init().await?;
 
+        let dir_handle = if cfg!(unix) {
+            // FIXME async file open
+            Some(Arc::new(File::open(&config.dir)?))
+        } else {
+            None
+        };
+
         return Ok(Db {
             config: Arc::new(config),
             inner: Arc::new(db),
+            dir_handle,
         });
 
         fn make_logs(config: &DbConfig) -> Result<(BTreeMap<String, Log<Command>>, Log<CommitCommand>)> {
@@ -93,7 +102,11 @@ impl Db {
     }
 
     pub async fn sync(&self) -> Result<()> {
-        panic!()
+        self.inner.sync().await?;
+
+        // Also need to sync the directory
+
+        Ok(())
     }
 }
 
