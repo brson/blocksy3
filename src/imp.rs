@@ -18,8 +18,8 @@ pub struct DbConfig {
 
 #[derive(Clone)]
 pub struct Db {
-    inner: Arc<bdb::Db>,
     config: Arc<DbConfig>,
+    inner: Arc<bdb::Db>,
 }
 
 pub struct WriteBatch {
@@ -44,11 +44,17 @@ pub struct Cursor {
 
 impl Db {
     pub async fn open(config: DbConfig) -> Result<Db> {
-        let (tree_logs, commit_log) = make_logs(&config).await?;
+        let (tree_logs, commit_log) = make_logs(&config)?;
 
-        panic!();
+        let db = bdb::Db::new(tree_logs, commit_log);
+        db.init().await?;
 
-        async fn make_logs(config: &DbConfig) -> Result<(BTreeMap<String, Log<Command>>, Log<CommitCommand>)> {
+        return Ok(Db {
+            config: Arc::new(config),
+            inner: Arc::new(db),
+        });
+
+        fn make_logs(config: &DbConfig) -> Result<(BTreeMap<String, Log<Command>>, Log<CommitCommand>)> {
             // FIXME: async create dir
             fs::create_dir_all(&config.dir)?;
 
