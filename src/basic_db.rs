@@ -121,10 +121,6 @@ impl Db {
 }
 
 impl BatchWriter {
-    fn tree_writer(&self, tree: &str) -> &tree::BatchWriter {
-        self.batch_writers.get(tree).expect("tree")
-    }
-
     pub async fn open(&self, tree: &str) -> Result<()> {
         let writer = self.tree_writer(tree);
         Ok(writer.open().await?)
@@ -198,14 +194,18 @@ impl BatchWriter {
         Ok(())
     }
 
-    async fn write_commit(&self, _commit_lock: &MutexGuard<'_, ()>, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
-        Ok(self.commit_log.commit(self.batch, batch_commit, commit).await?)
-    }
-
     /// NB: This must be called after the batch is committed
     pub async fn close(self, tree: &str) -> Result<()> {
         let writer = self.tree_writer(tree);
         Ok(writer.close().await?)
+    }
+
+    fn tree_writer(&self, tree: &str) -> &tree::BatchWriter {
+        self.batch_writers.get(tree).expect("tree")
+    }
+
+    async fn write_commit(&self, _commit_lock: &MutexGuard<'_, ()>, batch_commit: BatchCommit, commit: Commit) -> Result<()> {
+        Ok(self.commit_log.commit(self.batch, batch_commit, commit).await?)
     }
 }
 

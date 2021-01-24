@@ -32,10 +32,12 @@ pub struct ReadView {
 }
 
 pub struct WriteTree<'batch> {
+    tree: String,
     batch: &'batch WriteBatch,
 }
 
 pub struct ReadTree<'view> {
+    tree: String,
     view: &'view ReadView,
 }
 
@@ -116,7 +118,10 @@ impl Db {
 
 impl WriteBatch {
     pub fn tree<'batch>(&'batch self, tree: &str) -> WriteTree<'batch> {
-        panic!()
+        WriteTree {
+            tree: tree.to_string(),
+            batch: self,
+        }
     }
 
     pub async fn commit(self) -> Result<()> {
@@ -130,7 +135,10 @@ impl WriteBatch {
 
 impl ReadView {
     pub fn tree<'view>(&'view self, tree: &str) -> ReadTree<'view> {
-        panic!()
+        ReadTree {
+            tree: tree.to_string(),
+            view: self,
+        }
     }
 }
 
