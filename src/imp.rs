@@ -81,11 +81,15 @@ impl Db {
     }
 
     pub fn write_batch(&self) -> WriteBatch {
-        panic!()
+        WriteBatch {
+            inner: self.inner.batch(),
+        }
     }
 
     pub fn read_view(&self) -> ReadView {
-        panic!()
+        ReadView {
+            inner: self.inner.view(),
+        }
     }
 
     pub async fn sync(&self) -> Result<()> {
