@@ -29,6 +29,7 @@ documented or tested.
 
 ## Features
 
+- Tiny and readable
 - Multiple key/value collections, aka "column families"
 - Point reads
 - Read cursors / iterators over a consistent snapshot / view
