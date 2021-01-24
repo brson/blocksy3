@@ -1,13 +1,24 @@
 use anyhow::Result;
+use std::sync::Arc;
+use std::path::PathBuf;
 
-pub struct DbConfig;
+use crate::basic_db as bdb;
 
 #[derive(Clone, Debug)]
-pub struct Db;
+pub struct DbConfig {
+    dir: PathBuf,
+    trees: Vec<String>,
+}
+
+#[derive(Clone)]
+pub struct Db {
+    inner: Arc<bdb::Db>,
+    config: Arc<DbConfig>,
+}
 
 pub struct WriteBatch;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ReadView;
 
 pub struct WriteTree<'batch>(std::marker::PhantomData<&'batch ()>);

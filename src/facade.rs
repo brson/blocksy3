@@ -4,11 +4,11 @@ use crate::imp;
 
 pub type DbConfig = imp::DbConfig;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Db(imp::Db);
 
 pub struct WriteBatch(imp::WriteBatch);
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ReadView(imp::ReadView);
 pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
 pub struct ReadTree<'view>(imp::ReadTree<'view>);
