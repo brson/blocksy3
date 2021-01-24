@@ -10,7 +10,7 @@ use futures::future::BoxFuture;
 use std::io::{Seek, SeekFrom, BufReader};
 use crate::frame;
 
-fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
+pub fn create<Cmd>(path: PathBuf, fs_thread: Arc<FsThread>) -> LogFile<Cmd>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
     let path = Arc::new(path);

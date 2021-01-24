@@ -1,7 +1,13 @@
+use std::fs;
+use std::collections::BTreeMap;
 use anyhow::Result;
 use std::sync::Arc;
-use std::path::PathBuf;
-
+use std::path::{PathBuf, Path};
+use crate::log::Log;
+use crate::simple_log_file;
+use crate::command::Command;
+use crate::commit_log::CommitCommand;
+use crate::fs_thread::FsThread;
 use crate::basic_db as bdb;
 
 #[derive(Clone, Debug)]
@@ -38,7 +44,34 @@ pub struct Cursor {
 
 impl Db {
     pub async fn open(config: DbConfig) -> Result<Db> {
-        panic!()
+        let (tree_logs, commit_log) = make_logs(&config).await?;
+
+        panic!();
+
+        async fn make_logs(config: &DbConfig) -> Result<(BTreeMap<String, Log<Command>>, Log<CommitCommand>)> {
+            // FIXME: async create dir
+            fs::create_dir_all(&config.dir)?;
+
+            let fs_thread = Arc::new(FsThread::start()?);
+
+            let tree_logs = config.trees.iter()
+                .map(|tree| {
+                    let path = config.dir.join(format!("{}.toml", tree));
+                    (tree.clone(), path)
+                });
+
+            assert!(!config.trees.iter().any(|t| t == "commits"));
+            let commit_log = config.dir.join(format!("commits.toml"));
+
+            let tree_logs = tree_logs.into_iter()
+                .map(|(tree, path)| {
+                    (tree, Log::new(simple_log_file::create(path, fs_thread.clone())))
+                }).collect();
+
+            let commit_log = Log::new(simple_log_file::create(commit_log, fs_thread.clone()));
+
+            Ok((tree_logs, commit_log))
+        }
     }
 
     pub fn write_batch(&self) -> WriteBatch {
@@ -127,3 +160,4 @@ impl Cursor {
         panic!()
     }
 }
+
