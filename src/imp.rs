@@ -1,3 +1,4 @@
+use log::error;
 use std::fs::{self, File};
 use std::collections::BTreeMap;
 use anyhow::Result;
@@ -20,11 +21,13 @@ pub struct DbConfig {
 pub struct Db {
     config: Arc<DbConfig>,
     inner: Arc<bdb::Db>,
+    trees: Arc<Vec<String>>,
     dir_handle: Option<Arc<File>>, // Unix only
 }
 
 pub struct WriteBatch {
     inner: bdb::BatchWriter,
+    trees: Arc<Vec<String>>,
 }
 
 pub struct ReadView {
@@ -59,9 +62,12 @@ impl Db {
             None
         };
 
+        let trees = Arc::new(config.trees.clone());
+
         return Ok(Db {
             config: Arc::new(config),
             inner: Arc::new(db),
+            trees,
             dir_handle,
         });
 
@@ -94,6 +100,7 @@ impl Db {
     pub fn write_batch(&self) -> WriteBatch {
         WriteBatch {
             inner: self.inner.batch(),
+            trees: self.trees.clone(),
         }
     }
 
@@ -124,12 +131,42 @@ impl WriteBatch {
         }
     }
 
-    pub async fn commit(self) -> Result<()> {
-        panic!()
+    pub async fn commit(&self) -> Result<()> {
+        let batch_commit = self.inner.new_batch_commit_number();
+        let mut error = None;
+        for tree in self.trees.iter() {
+            if error.is_none() {
+                let r = self.inner.ready_commit(tree, batch_commit).await;
+                if let Err(e) = r {
+                    error = Some(e);
+                }
+            } else {
+                let r = self.inner.abort_commit(tree, batch_commit).await;
+                if let Err(e) = r {
+                    error!("error aborting tree commit: {}", e);
+                }
+            }
+        }
+
+        if let Some(e) = error {
+            return Err(e);
+        }
+
+        self.inner.commit(batch_commit).await?;
+
+        Ok(())
     }
 
-    pub fn abort(self) {
+    pub fn abort(&self) {
         panic!()
+    }
+}
+
+impl Drop for WriteBatch {
+    fn drop(&mut self) {
+        for tree in self.trees.iter() {
+            panic!("todo close tree");
+        }
     }
 }
 

@@ -168,6 +168,11 @@ impl BatchWriter {
         Ok(writer.ready_commit(batch_commit).await?)
     }
 
+    pub async fn abort_commit(&self, tree: &str, batch_commit: BatchCommit) -> Result<()> {
+        let writer = self.tree_writer(tree);
+        Ok(writer.abort_commit(batch_commit).await?)
+    }
+
     pub async fn commit(&self, batch_commit: BatchCommit) -> Result<()> {
         // Next steps are under the commit lock in order
         // to keep commits numbers stored monotonically
