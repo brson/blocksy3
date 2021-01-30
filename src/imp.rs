@@ -209,11 +209,11 @@ impl<'batch> WriteTree<'batch> {
     }
 
     pub async fn delete(&self, key: &[u8]) -> Result<()> {
-        panic!()
+        Ok(self.batch.inner.delete(&self.tree, Key::from_slice(key)).await?)
     }
 
     pub async fn delete_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<()> {
-        panic!()
+        Ok(self.batch.inner.delete_range(&self.tree, Key::from_slice(start_key), Key::from_slice(end_key)).await?)
     }
 }
 
