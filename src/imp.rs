@@ -232,34 +232,34 @@ impl<'view> ReadTree<'view> {
 
 impl Cursor {
     pub fn valid(&self) -> bool {
+        self.inner.is_valid()
+    }
+
+    pub fn next(&mut self) {
         panic!()
     }
 
-    pub async fn next(&mut self) -> Result<()> {
+    pub fn prev(&mut self) {
         panic!()
     }
 
-    pub async fn prev(&mut self) -> Result<()> {
+    pub async fn key_value(&self) -> Result<(&[u8], &[u8])> {
         panic!()
     }
 
-    pub fn key_value(&self) -> (&[u8], &[u8]) {
+    pub fn seek_first(&mut self) {
         panic!()
     }
 
-    pub async fn seek_first(&mut self) -> Result<()> {
+    pub fn seek_last(&mut self) {
         panic!()
     }
 
-    pub async fn seek_last(&mut self) -> Result<()> {
+    pub fn seek_key(&mut self, key: &[u8]) {
         panic!()
     }
 
-    pub async fn seek_key(&mut self, key: &[u8]) -> Result<()> {
-        panic!()
-    }
-
-    pub async fn seek_key_rev(&mut self, key: &[u8]) -> Result<()> {
+    pub fn seek_key_rev(&mut self, key: &[u8]) {
         panic!()
     }
 }
