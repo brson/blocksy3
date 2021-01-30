@@ -38,3 +38,15 @@ pub struct BatchCommit(pub u64);
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Commit(pub u64);
+
+impl Key {
+    pub fn from_slice(other: &[u8]) -> Key {
+        Key(Arc::new(other.to_vec()))
+    }
+}
+
+impl Value {
+    pub fn from_slice(other: &[u8]) -> Value {
+        Value(Arc::new(other.to_vec()))
+    }
+}

@@ -10,6 +10,7 @@ use crate::command::Command;
 use crate::commit_log::CommitCommand;
 use crate::fs_thread::FsThread;
 use crate::basic_db as bdb;
+use crate::types::{Key, Value};
 
 #[derive(Clone, Debug)]
 pub struct DbConfig {
@@ -204,7 +205,7 @@ impl ReadView {
 
 impl<'batch> WriteTree<'batch> {
     pub async fn write(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        panic!()
+        Ok(self.batch.inner.write(&self.tree, Key::from_slice(key), Value::from_slice(value)).await?)
     }
 
     pub async fn delete(&self, key: &[u8]) -> Result<()> {
