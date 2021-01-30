@@ -236,11 +236,11 @@ impl Cursor {
     }
 
     pub fn next(&mut self) {
-        panic!()
+        self.inner.next()
     }
 
     pub fn prev(&mut self) {
-        panic!()
+        self.inner.prev()
     }
 
     pub async fn key_value(&self) -> Result<(&[u8], &[u8])> {
@@ -248,19 +248,19 @@ impl Cursor {
     }
 
     pub fn seek_first(&mut self) {
-        panic!()
+        self.inner.seek_first()
     }
 
     pub fn seek_last(&mut self) {
-        panic!()
+        self.inner.seek_last()
     }
 
     pub fn seek_key(&mut self, key: &[u8]) {
-        panic!()
+        self.inner.seek_key(Key::from_slice(key))
     }
 
     pub fn seek_key_rev(&mut self, key: &[u8]) {
-        panic!()
+        self.inner.seek_key_rev(Key::from_slice(key))
     }
 }
 
