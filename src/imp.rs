@@ -219,11 +219,14 @@ impl<'batch> WriteTree<'batch> {
 
 impl<'view> ReadTree<'view> {
     pub async fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        panic!()
+        Ok(self.view.inner.read(&self.tree, &Key::from_slice(key)).await?
+           .map(|v| v.0.as_ref().clone()))
     }
 
     pub fn cursor(&self) -> Cursor {
-        panic!()
+        Cursor {
+            inner: self.view.inner.cursor(&self.tree),
+        }
     }
 }
 
