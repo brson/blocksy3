@@ -203,11 +203,15 @@ impl ReadView {
 }
 
 impl<'batch> WriteTree<'batch> {
-    pub fn write(&self, key: &[u8], value: &[u8]) {
+    pub async fn write(&self, key: &[u8], value: &[u8]) -> Result<()> {
         panic!()
     }
 
-    pub fn delete(&self, key: &[u8]) {
+    pub async fn delete(&self, key: &[u8]) -> Result<()> {
+        panic!()
+    }
+
+    pub async fn delete_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<()> {
         panic!()
     }
 }

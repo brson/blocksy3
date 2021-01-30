@@ -33,8 +33,9 @@ impl ReadView {
 }
 
 impl<'batch> WriteTree<'batch> {
-    pub fn write(&self, key: &[u8], value: &[u8]) { self.0.write(key, value) }
-    pub fn delete(&self, key: &[u8]) { self.0.delete(key) }
+    pub async fn write(&self, key: &[u8], value: &[u8]) -> Result<()> { Ok(self.0.write(key, value).await?) }
+    pub async fn delete(&self, key: &[u8]) -> Result<()> { Ok(self.0.delete(key).await?) }
+    pub async fn delete_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<()> { Ok(self.0.delete_range(start_key, end_key).await?) }
 }
 
 impl<'view> ReadTree<'view> {
