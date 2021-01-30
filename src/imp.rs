@@ -28,6 +28,7 @@ pub struct Db {
 pub struct WriteBatch {
     inner: bdb::BatchWriter,
     trees: Arc<Vec<String>>,
+    closed: bool,
 }
 
 pub struct ReadView {
@@ -101,6 +102,7 @@ impl Db {
         WriteBatch {
             inner: self.inner.batch(),
             trees: self.trees.clone(),
+            closed: false,
         }
     }
 
@@ -143,7 +145,8 @@ impl WriteBatch {
             } else {
                 let r = self.inner.abort_commit(tree, batch_commit).await;
                 if let Err(e) = r {
-                    error!("error aborting tree commit: {}", e);
+                    error!("error aborting batch commit {} for batch {} for tree {}: {}",
+                           batch_commit.0, self.inner.number().0, tree, e);
                 }
             }
         }
@@ -160,12 +163,36 @@ impl WriteBatch {
     pub fn abort(&self) {
         panic!()
     }
+
+    pub async fn close(mut self) -> Result<()> {
+        let mut error = None;
+        for tree in self.trees.iter() {
+            let r = self.inner.close(tree).await;
+            if let Err(e) = r {
+                if error.is_none() {
+                    error = Some(e);
+                } else {
+                    error!("error closing batch {} for tree {}: {}",
+                           self.inner.number().0, tree, e);
+                }
+            }
+        }
+
+        self.closed = true;
+
+        if let Some(e) = error {
+            Err(e)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl Drop for WriteBatch {
     fn drop(&mut self) {
-        for tree in self.trees.iter() {
-            panic!("todo close tree");
+        if !self.closed {
+            error!("write batch {} not closed", self.inner.number().0);
+            // TODO: last-ditch attempt in another thread?
         }
     }
 }

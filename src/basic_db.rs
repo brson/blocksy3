@@ -121,6 +121,10 @@ impl Db {
 }
 
 impl BatchWriter {
+    pub fn number(&self) -> Batch {
+        self.batch
+    }
+
     pub async fn open(&self, tree: &str) -> Result<()> {
         let writer = self.tree_writer(tree);
         Ok(writer.open().await?)
@@ -200,7 +204,7 @@ impl BatchWriter {
     }
 
     /// NB: This must be called after the batch is committed
-    pub async fn close(self, tree: &str) -> Result<()> {
+    pub async fn close(&self, tree: &str) -> Result<()> {
         let writer = self.tree_writer(tree);
         Ok(writer.close().await?)
     }
