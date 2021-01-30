@@ -24,7 +24,8 @@ impl Db {
 impl WriteBatch {
     pub fn tree<'batch>(&'batch self, tree: &str) -> WriteTree<'batch> { WriteTree(self.0.tree(tree)) }
     pub async fn commit(&self) -> Result<()> { self.0.commit().await }
-    pub fn abort(&self) { self.0.abort() }
+    pub async fn abort(&self) { self.0.abort().await }
+    pub async fn close(self) { self.0.close().await }
 }
 
 impl ReadView {

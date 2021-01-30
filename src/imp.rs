@@ -160,31 +160,27 @@ impl WriteBatch {
         Ok(())
     }
 
-    pub fn abort(&self) {
-        panic!()
+    pub async fn abort(&self) {
+        let batch_commit = self.inner.new_batch_commit_number();
+        for tree in self.trees.iter() {
+            let r = self.inner.abort_commit(tree, batch_commit).await;
+            if let Err(e) = r {
+                error!("error aborting batch commit {} for batch {} for tree {}: {}",
+                       batch_commit.0, self.inner.number().0, tree, e);
+            }
+        }
     }
 
-    pub async fn close(mut self) -> Result<()> {
-        let mut error = None;
+    pub async fn close(mut self) {
         for tree in self.trees.iter() {
             let r = self.inner.close(tree).await;
             if let Err(e) = r {
-                if error.is_none() {
-                    error = Some(e);
-                } else {
-                    error!("error closing batch {} for tree {}: {}",
-                           self.inner.number().0, tree, e);
-                }
+                error!("error closing batch {} for tree {}: {}",
+                       self.inner.number().0, tree, e);
             }
         }
 
         self.closed = true;
-
-        if let Some(e) = error {
-            Err(e)
-        } else {
-            Ok(())
-        }
     }
 }
 
