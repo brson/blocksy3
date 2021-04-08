@@ -22,7 +22,6 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
         // a bunch of memory.
         // Fix for this is to do ready-commit under its
         // own lock so that it is serialized.
-        panic!("fixme");
         for (_, player) in tree_players.iter_mut() {
             player.replay_commit(next_commit.batch,
                                  next_commit.batch_commit,

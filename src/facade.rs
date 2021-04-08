@@ -44,10 +44,11 @@ impl<'view> ReadTree<'view> {
 }
 
 impl Cursor {
-    pub fn valid(&self) -> bool { self.0.valid() }
+    pub fn is_valid(&self) -> bool { self.0.is_valid() }
+    pub fn key(&self) -> Vec<u8> { self.0.key() }
+    pub async fn value(&mut self) -> Result<Vec<u8>> { Ok(self.0.value().await?) }
     pub fn next(&mut self) { self.0.next() }
     pub fn prev(&mut self) { self.0.prev() }
-    pub async fn key_value(&self) -> Result<(&[u8], &[u8])> { Ok(self.0.key_value().await?) }
     pub fn seek_first(&mut self) { self.0.seek_first() }
     pub fn seek_last(&mut self) { self.0.seek_last() }
     pub fn seek_key(&mut self, key: &[u8]) { self.0.seek_key(key) }

@@ -11,6 +11,7 @@ use crate::commit_log::CommitCommand;
 use crate::fs_thread::FsThread;
 use crate::basic_db as bdb;
 use crate::types::{Key, Value};
+use std::ops::Deref;
 
 #[derive(Clone, Debug)]
 pub struct DbConfig {
@@ -231,8 +232,16 @@ impl<'view> ReadTree<'view> {
 }
 
 impl Cursor {
-    pub fn valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         self.inner.is_valid()
+    }
+
+    pub fn key(&self) -> Vec<u8> {
+        self.inner.key().0.deref().clone()
+    }
+
+    pub async fn value(&mut self) -> Result<Vec<u8>> {
+        Ok(self.inner.value().await?.0.deref().clone())
     }
 
     pub fn next(&mut self) {
@@ -241,10 +250,6 @@ impl Cursor {
 
     pub fn prev(&mut self) {
         self.inner.prev()
-    }
-
-    pub async fn key_value(&self) -> Result<(&[u8], &[u8])> {
-        panic!()
     }
 
     pub fn seek_first(&mut self) {
