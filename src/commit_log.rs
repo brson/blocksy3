@@ -20,6 +20,10 @@ impl CommitLog {
         CommitLog { log }
     }
 
+    pub async fn is_empty(&self) -> Result<bool> {
+        Ok(self.log.is_empty().await?)
+    }
+
     pub fn replay(&self) -> impl Stream<Item = Result<CommitCommand>> + Unpin {
         self.log.replay().map(|r| r.map(|(cmd, _)| cmd))
     }

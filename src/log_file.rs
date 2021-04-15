@@ -6,6 +6,7 @@ use anyhow::Result;
 use futures::future::BoxFuture;
 
 pub struct LogFile<Cmd> where Cmd: Serialize + for <'de> Deserialize<'de> {
+    pub is_empty: Box<dyn Fn() -> BoxFuture<'static, Result<bool>> + Send + Sync>,
     pub append: Box<dyn Fn(Cmd) -> BoxFuture<'static, Result<Address>> + Send + Sync>,
     pub read_at: Box<dyn Fn(Address) -> BoxFuture<'static, Result<(Cmd, Option<Address>)>> + Send + Sync>,
     pub sync: Box<dyn Fn() -> BoxFuture<'static, Result<()>> + Send + Sync>
@@ -14,6 +15,10 @@ pub struct LogFile<Cmd> where Cmd: Serialize + for <'de> Deserialize<'de> {
 impl<Cmd> LogFile<Cmd>
 where Cmd: Serialize + for <'de> Deserialize<'de>
 {
+    pub async fn is_empty(&self) -> Result<bool> {
+        (self.is_empty)().await
+    }
+
     pub async fn append(&self, cmd: Cmd) -> Result<Address> {
         (self.append)(cmd).await
     }

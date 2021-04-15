@@ -6,6 +6,14 @@ use futures::stream::StreamExt;
 use crate::types::{Batch, BatchCommit, Commit};
 
 pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Result<DbInitState> {
+    if commit_log.is_empty().await? {
+        return Ok(DbInitState {
+            next_batch: Batch(0),
+            next_batch_commit: BatchCommit(0),
+            next_commit: Commit(0),
+        });
+    }
+
     let mut commit_replay_stream = commit_log.replay();
 
     let mut tree_players: BTreeMap<_, _> = trees.iter().map(|(tree_name, tree)| {

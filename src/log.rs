@@ -48,6 +48,10 @@ where Cmd: Serialize + for <'de> Deserialize<'de>
         }))
     }
 
+    pub async fn is_empty(&self) -> Result<bool> {
+        Ok(self.log_file.is_empty().await?)
+    }
+
     pub async fn append(&self, cmd: Cmd) -> Result<Address> {
         Ok(self.log_file.append(cmd).await?)
     }
