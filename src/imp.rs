@@ -15,8 +15,8 @@ use std::ops::Deref;
 
 #[derive(Clone, Debug)]
 pub struct DbConfig {
-    dir: PathBuf,
-    trees: Vec<String>,
+    pub dir: PathBuf,
+    pub trees: Vec<String>,
 }
 
 #[derive(Clone)]

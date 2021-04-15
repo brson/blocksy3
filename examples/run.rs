@@ -1,5 +1,9 @@
 use std::env;
 use anyhow::{Result, bail, anyhow};
+use std::path::PathBuf;
+
+use blocksy3::facade as db;
+use futures::executor::block_on;
 
 #[derive(Debug)]
 enum Command {
@@ -28,7 +32,14 @@ enum Command {
 
 fn main() -> Result<()> {
     let commands = parse_commands()?;
-    println!("{:#?}", commands);
+
+    let config = db::DbConfig {
+        dir: PathBuf::from("testdb"),
+        trees: vec!["a".to_string(), "b".to_string(), "c".to_string()],
+    };
+
+    let db = db::Db::open(config);
+    let db = block_on(db)?;
 
     Ok(())
 }

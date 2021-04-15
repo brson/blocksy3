@@ -4,7 +4,7 @@ mod basic_db;
 mod batch_player;
 mod command;
 mod commit_log;
-mod facade;
+pub mod facade;
 mod frame;
 mod fs_thread;
 mod imp;
