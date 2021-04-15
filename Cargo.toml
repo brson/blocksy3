@@ -13,3 +13,4 @@ futures = { version = "0.3.14", features = ["executor"] }
 async-channel = "1.6.1"
 log = "0.4.14"
 toml = "0.5.8"
+env_logger = "0.8.3"

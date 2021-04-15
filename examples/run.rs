@@ -31,6 +31,8 @@ enum Command {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
+
     let commands = parse_commands()?;
 
     let config = db::DbConfig {
