@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::env;
 use anyhow::{Result, bail, anyhow};
 use std::path::PathBuf;
@@ -42,6 +44,15 @@ fn main() -> Result<()> {
 
     let db = db::Db::open(config);
     let db = block_on(db)?;
+
+    for command in commands {
+        match command {
+            CommandIterate { tree } => {
+                
+            }
+            _ => panic!(),
+        }
+    }
 
     Ok(())
 }
