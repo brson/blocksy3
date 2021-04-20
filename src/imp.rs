@@ -139,6 +139,30 @@ impl WriteBatch {
         }
     }
 
+    pub async fn push_save_point(&self) -> Result<()> {
+        for tree in self.trees.iter() {
+            self.inner.push_save_point(tree).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn pop_save_point(&self) -> Result<()> {
+        for tree in self.trees.iter() {
+            self.inner.pop_save_point(tree).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn rollback_save_point(&self) -> Result<()> {
+        for tree in self.trees.iter() {
+            self.inner.rollback_save_point(tree).await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn commit(&self) -> Result<()> {
         let batch_commit = self.inner.new_batch_commit_number();
         let mut error = None;

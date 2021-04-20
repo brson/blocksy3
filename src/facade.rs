@@ -23,6 +23,9 @@ impl Db {
 
 impl WriteBatch {
     pub fn tree<'batch>(&'batch self, tree: &str) -> WriteTree<'batch> { WriteTree(self.0.tree(tree)) }
+    pub async fn push_save_point(&self) -> Result<()> { self.0.push_save_point().await }
+    pub async fn pop_save_point(&self) -> Result<()> { self.0.pop_save_point().await }
+    pub async fn rollback_save_point(&self) -> Result<()> { self.0.rollback_save_point().await }
     pub async fn commit(&self) -> Result<()> { self.0.commit().await }
     pub async fn abort(&self) { self.0.abort().await }
     pub async fn close(self) { self.0.close().await }
@@ -33,9 +36,9 @@ impl ReadView {
 }
 
 impl<'batch> WriteTree<'batch> {
-    pub async fn write(&self, key: &[u8], value: &[u8]) -> Result<()> { Ok(self.0.write(key, value).await?) }
-    pub async fn delete(&self, key: &[u8]) -> Result<()> { Ok(self.0.delete(key).await?) }
-    pub async fn delete_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<()> { Ok(self.0.delete_range(start_key, end_key).await?) }
+    pub async fn write(&self, key: &[u8], value: &[u8]) -> Result<()> { self.0.write(key, value).await }
+    pub async fn delete(&self, key: &[u8]) -> Result<()> { self.0.delete(key).await }
+    pub async fn delete_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<()> { self.0.delete_range(start_key, end_key).await }
 }
 
 impl<'view> ReadTree<'view> {
@@ -46,7 +49,7 @@ impl<'view> ReadTree<'view> {
 impl Cursor {
     pub fn is_valid(&self) -> bool { self.0.is_valid() }
     pub fn key(&self) -> Vec<u8> { self.0.key() }
-    pub async fn value(&mut self) -> Result<Vec<u8>> { Ok(self.0.value().await?) }
+    pub async fn value(&mut self) -> Result<Vec<u8>> { self.0.value().await }
     pub fn next(&mut self) { self.0.next() }
     pub fn prev(&mut self) { self.0.prev() }
     pub fn seek_first(&mut self) { self.0.seek_first() }
