@@ -100,12 +100,16 @@ impl Db {
         }
     }
 
-    pub fn write_batch(&self) -> WriteBatch {
-        WriteBatch {
-            inner: self.inner.batch(),
+    pub async fn write_batch(&self) -> Result<WriteBatch> {
+        let batch = self.inner.batch();
+        for tree in &*self.trees {
+            batch.open(tree).await?;
+        }
+        Ok(WriteBatch {
+            inner: batch,
             trees: self.trees.clone(),
             closed: false,
-        }
+        })
     }
 
     pub fn read_view(&self) -> ReadView {
@@ -221,7 +225,7 @@ impl<'batch> WriteTree<'batch> {
 impl<'view> ReadTree<'view> {
     pub async fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         Ok(self.view.inner.read(&self.tree, &Key::from_slice(key)).await?
-           .map(|v| v.0.as_ref().clone()))
+           .map(|v| v.0.clone()))
     }
 
     pub fn cursor(&self) -> Cursor {
@@ -237,11 +241,11 @@ impl Cursor {
     }
 
     pub fn key(&self) -> Vec<u8> {
-        self.inner.key().0.deref().clone()
+        self.inner.key().0.clone()
     }
 
     pub async fn value(&mut self) -> Result<Vec<u8>> {
-        Ok(self.inner.value().await?.0.deref().clone())
+        Ok(self.inner.value().await?.0.clone())
     }
 
     pub fn next(&mut self) {

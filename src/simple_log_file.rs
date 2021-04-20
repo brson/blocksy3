@@ -59,7 +59,7 @@ async fn is_empty(state: Arc<State>) -> Result<bool> {
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
         let mut file = ctx.open_read(&path)?;
         let pos = file.seek(SeekFrom::End(0))?;
-        let pos = file.seek(SeekFrom::Start(0))?;
+        file.seek(SeekFrom::Start(0))?;
         if pos == 0 {
             Ok(true)
         } else {

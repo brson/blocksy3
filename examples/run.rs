@@ -33,23 +33,51 @@ enum Command {
 }
 
 fn main() -> Result<()> {
+    Ok(block_on(run())?)
+}
+
+async fn run() -> Result<()> {
     env_logger::init();
 
     let commands = parse_commands()?;
 
     let config = db::DbConfig {
         dir: PathBuf::from("testdb"),
-        trees: vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        trees: vec!["a".to_string(), "b".to_string()],
     };
 
-    let db = db::Db::open(config);
-    let db = block_on(db)?;
+    let db = db::Db::open(config).await?;
 
     for command in commands {
         match command {
-            CommandIterate { tree } => {
-                
+            Command::Write { tree, key, value } => {
+                let batch = db.write_batch().await?;
+                let tree = batch.tree(&tree);
+                tree.write(key.as_bytes(), value.as_bytes()).await?;
+                drop(tree);
+                batch.commit().await?;
+                batch.close().await;
+            },
+            Command::Delete { tree, key } => {
+                let batch = db.write_batch().await?;
+                let tree = batch.tree(&tree);
+                tree.delete(key.as_bytes()).await?;
+                drop(tree);
+                batch.commit().await?;
+                batch.close().await;
             }
+            Command::Iterate { tree } => {
+                let view = db.read_view();
+                let tree = view.tree(&tree);
+                let mut cursor = tree.cursor();
+                cursor.seek_first();
+                while cursor.is_valid() {
+                    let key = String::from_utf8(cursor.key()).expect("utf8");
+                    let value = String::from_utf8(cursor.value().await?).expect("utf8");
+                    println!("{}: {}", key, value);
+                    cursor.next();
+                }
+            },
             _ => panic!(),
         }
     }

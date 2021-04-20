@@ -4,6 +4,8 @@ use crate::types::{Key, Value, Batch, BatchCommit};
 
 #[derive(Serialize, Deserialize)]
 #[derive(Clone)]
+#[derive(Debug)]
+#[serde(tag = "type")]
 pub enum Command {
     Open {
         batch: Batch,

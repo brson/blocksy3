@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.125", features = ["derive", "rc"] }
+serde = { version = "1.0.125", features = ["derive"] }
 anyhow = "1.0.40"
 futures = { version = "0.3.14", features = ["executor"] }
 async-channel = "1.6.1"

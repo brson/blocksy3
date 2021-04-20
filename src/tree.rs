@@ -68,6 +68,10 @@ impl Tree {
         }
     }
 
+    pub fn skip_init(&self) {
+        self.initialized.store(true, Ordering::SeqCst);
+    }
+
     pub fn batch(&self, batch: Batch) -> BatchWriter {
         assert!(self.initialized.load(Ordering::SeqCst));
 
@@ -286,9 +290,11 @@ impl<'tree> InitReplayer<'tree> {
         
         while let Some(next_cmd) = self.cmd_stream.next().await {
             let (next_cmd, addr) = next_cmd?;
+            log::trace!("next cmd {:?}", next_cmd);
 
             let new_batch = Some(next_cmd.batch());
             let mut new_batch_commit = None;
+            let mut done = false;
 
             match next_cmd {
                 Command::Open { batch } => {
@@ -307,8 +313,8 @@ impl<'tree> InitReplayer<'tree> {
                     // then the only impact
                     // is that the temporary batch replayer here won't
                     // be deleted until the end of index reconstruction.
-                    self.batch_players.remove(&batch);
                     self.record_cmd(next_cmd, addr)?;
+                    self.batch_players.remove(&batch);
                 },
                 Command::ReadyCommit { batch, batch_commit } => {
                     new_batch_commit = Some(batch_commit);
@@ -327,7 +333,7 @@ impl<'tree> InitReplayer<'tree> {
                     if must_commit {
                         let batch_player = self.batch_players.get(&batch).expect("batch");
                         commit_to_index(&batch_player, &self.index, batch, batch_commit, commit);
-                        return Ok(());
+                        done = true;
                     } else {
                         // This ready-commit log happend out-of-order
                         // of the final commit.
@@ -357,7 +363,7 @@ impl<'tree> InitReplayer<'tree> {
                     if must_commit {
                         // Nothing to commit on abort,
                         // but other trees may have committed.
-                        return Ok(());
+                        done = true;
                     } else {
                         // This ready-commit log happend out-of-order
                         // of the final commit.
@@ -376,6 +382,10 @@ impl<'tree> InitReplayer<'tree> {
             }
 
             self.update_max_batch_and_batch_commit(new_batch, new_batch_commit);
+
+            if done {
+                return Ok(());
+            }
         }
 
         bail!("commit not found for batch {} / batch-commit {} / commit {}",
@@ -406,6 +416,7 @@ impl<'tree> InitReplayer<'tree> {
     }
 
     fn record_cmd(&mut self, cmd: Command, addr: Address) -> Result<()> {
+        log::trace!("record cmd {:?}", cmd);
         let batch = cmd.batch();
         let batch_player = self.batch_players.get(&batch)
             .ok_or_else(|| anyhow!("command replay before batch opened"))?;

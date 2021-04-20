@@ -9,6 +9,7 @@ pub struct CommitLog {
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct CommitCommand {
     pub batch: Batch,
     pub batch_commit: BatchCommit,

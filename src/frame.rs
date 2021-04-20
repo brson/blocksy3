@@ -11,14 +11,14 @@ where Io: Write,
 {
     let body = toml::to_string_pretty(cmd)?;
     let length = u64::try_from(body.len()).expect("u64");
-    let length = length.checked_add(2).expect("overflow"); // + 2 newlines
+    let length = length.checked_add(4).expect("overflow"); // + 4 newlines
     let header = Header { length };
     let header = toml::to_string_pretty(&header)?;
     let frame = format!(
         "{}\n\
          \n{}\n\
          {}\n\
-         \n{}\n",
+         \n{}\n\n\n",
         FRAME_HEADER_MARKER,
         header,
         FRAME_BODY_MARKER,
@@ -86,7 +86,7 @@ where Io: Read + BufRead,
     Ok(cmd)
 }
 
-static FRAME_HEADER_MARKER: &'static str = "# HEADER";
+static FRAME_HEADER_MARKER: &'static str = "[[frames]] # HEADER";
 static FRAME_BODY_MARKER: &'static str = "# BODY";
 
 #[derive(Serialize, Deserialize)]

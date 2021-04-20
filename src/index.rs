@@ -11,6 +11,7 @@ pub struct Index {
     keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
 }
 
+#[derive(Debug)]
 struct Node {
     key: Key,
     prev: RwLock<Option<Arc<Node>>>,
@@ -31,6 +32,7 @@ pub struct Writer<'index> {
 }
 
 #[derive(Copy, Clone)]
+#[derive(Debug)]
 pub enum ReadValue {
     Written(Address),
     Deleted(Address),

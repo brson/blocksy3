@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 #[derive(Eq, PartialEq)]
 #[derive(Copy, Clone)]
+#[derive(Debug)]
 pub struct Address(pub u64);
 
 #[derive(Serialize, Deserialize)]
@@ -10,13 +11,14 @@ pub struct Address(pub u64);
 #[derive(Ord, PartialOrd)]
 #[derive(Clone)]
 #[derive(Debug)]
-pub struct Key(pub Arc<Vec<u8>>);
+pub struct Key(pub Vec<u8>);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq)]
 #[derive(Ord, PartialOrd)]
 #[derive(Clone)]
-pub struct Value(pub Arc<Vec<u8>>);
+#[derive(Debug)]
+pub struct Value(pub Vec<u8>);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Eq, PartialEq)]
@@ -41,12 +43,12 @@ pub struct Commit(pub u64);
 
 impl Key {
     pub fn from_slice(other: &[u8]) -> Key {
-        Key(Arc::new(other.to_vec()))
+        Key(other.to_vec())
     }
 }
 
 impl Value {
     pub fn from_slice(other: &[u8]) -> Value {
-        Value(Arc::new(other.to_vec()))
+        Value(other.to_vec())
     }
 }

@@ -7,6 +7,9 @@ use crate::types::{Batch, BatchCommit, Commit};
 
 pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Result<DbInitState> {
     if commit_log.is_empty().await? {
+        for tree in trees.values() {
+            tree.skip_init();
+        }
         return Ok(DbInitState {
             next_batch: Batch(0),
             next_batch_commit: BatchCommit(0),
@@ -23,6 +26,7 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
     let mut max_commit = None;
 
     while let Some(next_commit) = commit_replay_stream.next().await {
+        log::trace!("next commit {:?}", next_commit);
         let next_commit = next_commit?;
 
         // FIXME: If a tree doesn't participate in a batch,
@@ -88,6 +92,7 @@ pub async fn load(commit_log: &CommitLog, trees: &BTreeMap<String, Tree>) -> Res
     })
 }
 
+#[derive(Debug)]
 pub struct DbInitState {
     pub next_batch: Batch,
     pub next_batch_commit: BatchCommit,
