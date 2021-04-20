@@ -100,7 +100,7 @@ async fn run() -> Result<()> {
 
     let config = db::DbConfig {
         dir: PathBuf::from("testdb"),
-        trees: vec!["a".to_string(), "b".to_string()],
+        trees: vec!["t1".to_string(), "t2".to_string()],
     };
 
     let db = db::Db::open(config).await?;
@@ -176,8 +176,20 @@ async fn run() -> Result<()> {
             },
             Command::BatchDeleteRange { batch, tree, start, end } => {
                 let batch = batches.get(&batch).expect("batch");
-                let tree= batch.tree(&tree);
+                let tree = batch.tree(&tree);
                 tree.delete_range(start.as_bytes(), end.as_bytes()).await?;
+            },
+            Command::BatchPushSavePoint { batch } => {
+                let batch = batches.get(&batch).expect("batch");
+                batch.push_save_point().await?;
+            },
+            Command::BatchPopSavePoint { batch } => {
+                let batch = batches.get(&batch).expect("batch");
+                batch.pop_save_point().await?;
+            },
+            Command::BatchRollbackSavePoint { batch } => {
+                let batch = batches.get(&batch).expect("batch");
+                batch.rollback_save_point().await?;
             },
             Command::BatchCommit { batch } => {
                 let batch = batches.get(&batch).expect("batch");
