@@ -180,7 +180,7 @@ async fn run() -> Result<()> {
             },
             Command::BatchClose { batch } => {
                 let batch = batches.remove(&batch).expect("batch");
-                batch.close();
+                batch.close().await;
             },
 
             Command::ViewOpen { view } => {
