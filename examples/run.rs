@@ -53,6 +53,15 @@ enum Command {
         start: String,
         end: String,
     },
+    BatchPushSavePoint {
+        batch: String,
+    },
+    BatchPopSavePoint {
+        batch: String,
+    },
+    BatchRollbackSavePoint {
+        batch: String,
+    },
     BatchCommit {
         batch: String,
     },
@@ -286,6 +295,18 @@ fn parse_commands() -> Result<Vec<Command>> {
                     let start = parse_key(args)?;
                     let end = parse_key(args)?;
                     Command::BatchDeleteRange { batch, tree, start, end }
+                },
+                "batch-push-save-point" => {
+                    let batch = parse_batch(args)?;
+                    Command::BatchPushSavePoint { batch }
+                },
+                "batch-pop-save-point" => {
+                    let batch = parse_batch(args)?;
+                    Command::BatchPopSavePoint { batch }
+                },
+                "batch-rollback-save-point" => {
+                    let batch = parse_batch(args)?;
+                    Command::BatchRollbackSavePoint { batch }
                 },
                 "batch-commit" => {
                     let batch = parse_batch(args)?;
