@@ -65,7 +65,26 @@ async fn run() -> Result<()> {
                 drop(tree);
                 batch.commit().await?;
                 batch.close().await;
-            }
+            },
+            Command::DeleteRange { tree, start, end } => {
+                let batch = db.write_batch().await?;
+                let tree = batch.tree(&tree);
+                tree.delete_range(start.as_bytes(), end.as_bytes()).await?;
+                drop(tree);
+                batch.commit().await?;
+                batch.close().await;
+            },
+            Command::Read { tree, key } => {
+                let view = db.read_view();
+                let tree = view.tree(&tree);
+                let value = tree.read(key.as_bytes()).await?;
+                if let Some(value) = value {
+                    let value = String::from_utf8(value).expect("utf8");
+                    println!("{}: {}", key, value);
+                } else {
+                    println!("{}: <none>", key);
+                }
+            },
             Command::Iterate { tree } => {
                 let view = db.read_view();
                 let tree = view.tree(&tree);
