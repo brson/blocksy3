@@ -75,8 +75,8 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
     let path = state.path.clone();
     let future = state.fs_thread.run(move |ctx| -> Result<_> {
         let mut file = ctx.open_append(&path)?;
-        frame::write(file, &cmd)?;
         let pos = file.seek(SeekFrom::Current(0))?;
+        frame::write(file, &cmd)?;
         let addr = Address(pos);
         Ok(addr)
     });
