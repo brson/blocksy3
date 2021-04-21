@@ -10,6 +10,7 @@ use crate::commit_log::{CommitLog, CommitCommand};
 use crate::command::Command;
 use crate::log::Log;
 use crate::loader;
+use std::fmt;
 
 pub struct Db {
     initialized: AtomicBool,
@@ -270,5 +271,17 @@ impl Cursor {
 
     pub fn seek_key_rev(&mut self, key: Key) {
         self.tree_cursor.seek_key_rev(key)
+    }
+}
+
+impl fmt::Debug for Db {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Db")
+            .field("initialized", &self.initialized)
+            .field("next_batch", &self.next_batch)
+            .field("next_batch_commit", &self.next_batch_commit)
+            .field("next_commit", &self.next_commit)
+            .field("view_commit_limit", &self.view_commit_limit)
+            .finish()
     }
 }

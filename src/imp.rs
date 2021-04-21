@@ -19,6 +19,7 @@ pub struct DbConfig {
     pub trees: Vec<String>,
 }
 
+#[derive(Debug)]
 #[derive(Clone)]
 pub struct Db {
     config: Arc<DbConfig>,

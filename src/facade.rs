@@ -4,6 +4,7 @@ use crate::imp;
 
 pub type DbConfig = imp::DbConfig;
 
+#[derive(Debug)]
 #[derive(Clone)]
 pub struct Db(imp::Db);
 
