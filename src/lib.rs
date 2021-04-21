@@ -1,10 +1,12 @@
 #![allow(unused)]
 
+pub use facade::*;
+
 mod basic_db;
 mod batch_player;
 mod command;
 mod commit_log;
-pub mod facade;
+mod facade;
 mod frame;
 mod fs_thread;
 mod imp;

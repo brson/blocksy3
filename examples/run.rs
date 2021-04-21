@@ -5,7 +5,7 @@ use anyhow::{Result, bail, anyhow};
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-use blocksy3::facade as db;
+use blocksy3 as db;
 use futures::executor::block_on;
 
 #[derive(Debug)]
