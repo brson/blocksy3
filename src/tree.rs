@@ -142,6 +142,7 @@ impl BatchWriter {
     }
 
     pub async fn delete_range(&self, start_key: Key, end_key: Key) -> Result<()> {
+        assert!(start_key <= end_key);
         Ok(self.append_record(Command::DeleteRange {
             batch: self.batch,
             start_key,
