@@ -152,7 +152,7 @@ async fn run() -> Result<()> {
                 let tree = view.tree(&tree);
                 let mut cursor = tree.cursor();
                 cursor.seek_first();
-                while cursor.is_valid() {
+                while cursor.valid() {
                     let key = String::from_utf8(cursor.key()).expect("utf8");
                     let value = String::from_utf8(cursor.value().await?).expect("utf8");
                     println!("{}: {}", key, value);
@@ -224,7 +224,7 @@ async fn run() -> Result<()> {
                 let tree = view.tree(&tree);
                 let mut cursor = tree.cursor();
                 cursor.seek_first();
-                while cursor.is_valid() {
+                while cursor.valid() {
                     let key = String::from_utf8(cursor.key()).expect("utf8");
                     let value = String::from_utf8(cursor.value().await?).expect("utf8");
                     println!("{}: {}", key, value);

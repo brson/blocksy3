@@ -4,11 +4,12 @@ use crate::imp;
 
 pub type DbConfig = imp::DbConfig;
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Db(imp::Db);
 
 pub struct WriteBatch(imp::WriteBatch);
+
+#[derive(Clone, Debug)]
 pub struct ReadView(imp::ReadView);
 pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
 pub struct ReadTree<'view>(imp::ReadTree<'view>);
@@ -48,7 +49,7 @@ impl<'view> ReadTree<'view> {
 }
 
 impl Cursor {
-    pub fn is_valid(&self) -> bool { self.0.is_valid() }
+    pub fn valid(&self) -> bool { self.0.valid() }
     pub fn key(&self) -> Vec<u8> { self.0.key() }
     pub async fn value(&mut self) -> Result<Vec<u8>> { self.0.value().await }
     pub fn next(&mut self) { self.0.next() }

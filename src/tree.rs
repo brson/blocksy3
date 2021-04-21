@@ -211,8 +211,8 @@ impl BatchWriter {
 }
 
 impl Cursor {
-    pub fn is_valid(&self) -> bool {
-        self.index_cursor.is_valid()
+    pub fn valid(&self) -> bool {
+        self.index_cursor.valid()
     }
 
     pub fn key(&self) -> Key {
@@ -220,7 +220,7 @@ impl Cursor {
     }
 
     pub async fn value(&mut self) -> Result<Value> {
-        assert!(self.is_valid());
+        assert!(self.valid());
         if let Some(value) = &self.value {
             Ok(value.clone())
         } else {

@@ -19,8 +19,7 @@ pub struct DbConfig {
     pub trees: Vec<String>,
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Db {
     config: Arc<DbConfig>,
     inner: Arc<bdb::Db>,
@@ -34,6 +33,7 @@ pub struct WriteBatch {
     closed: bool,
 }
 
+#[derive(Clone, Debug)]
 pub struct ReadView {
     inner: bdb::ViewReader,
 }
@@ -261,8 +261,8 @@ impl<'view> ReadTree<'view> {
 }
 
 impl Cursor {
-    pub fn is_valid(&self) -> bool {
-        self.inner.is_valid()
+    pub fn valid(&self) -> bool {
+        self.inner.valid()
     }
 
     pub fn key(&self) -> Vec<u8> {

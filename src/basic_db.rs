@@ -33,6 +33,7 @@ pub struct BatchWriter {
     commit_log: Arc<CommitLog>,
 }
 
+#[derive(Clone)]
 pub struct ViewReader {
     commit_limit: Commit,
     trees: Arc<BTreeMap<String, Tree>>,
@@ -237,8 +238,8 @@ impl ViewReader {
 }
 
 impl Cursor {
-    pub fn is_valid(&self) -> bool {
-        self.tree_cursor.is_valid()
+    pub fn valid(&self) -> bool {
+        self.tree_cursor.valid()
     }
 
     pub fn key(&self) -> Key {
@@ -282,6 +283,14 @@ impl fmt::Debug for Db {
             .field("next_batch_commit", &self.next_batch_commit)
             .field("next_commit", &self.next_commit)
             .field("view_commit_limit", &self.view_commit_limit)
+            .finish()
+    }
+}
+
+impl fmt::Debug for ViewReader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ViewReader")
+            .field("commit_limit", &self.commit_limit)
             .finish()
     }
 }

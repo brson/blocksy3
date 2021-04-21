@@ -112,22 +112,22 @@ impl Drop for Index {
 }
 
 impl Cursor {
-    pub fn is_valid(&self) -> bool {
+    pub fn valid(&self) -> bool {
         self.current.is_some()
     }
 
     pub fn key(&self) -> Key {
-        assert!(self.is_valid());
+        assert!(self.valid());
         self.current.as_ref().expect("valid").0.key.clone()
     }
 
     pub fn address(&self) -> Address {
-        assert!(self.is_valid());
+        assert!(self.valid());
         self.current.as_ref().expect("valid").1
     }
 
     pub fn next(&mut self) {
-        assert!(self.is_valid());
+        assert!(self.valid());
         let mut candidate_node = {
             self.current.as_ref().expect("valid").0.next.read().expect("lock").clone()
         };
@@ -142,7 +142,7 @@ impl Cursor {
     }
 
     pub fn prev(&mut self) {
-        assert!(self.is_valid());
+        assert!(self.valid());
         let mut candidate_node = {
             self.current.as_ref().expect("valid").0.prev.read().expect("lock").clone()
         };
