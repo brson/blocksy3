@@ -1,4 +1,4 @@
-pub use anyhow::Result;
+pub use anyhow::{Result, anyhow};
 
 use crate::imp;
 
