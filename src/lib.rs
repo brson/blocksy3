@@ -15,6 +15,7 @@ mod index;
 mod loader;
 mod log;
 mod log_file;
+mod mem_log_file;
 mod simple_log_file;
 mod tree;
 mod types;
