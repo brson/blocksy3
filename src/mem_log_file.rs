@@ -64,7 +64,7 @@ async fn is_empty(state: Arc<State>) -> Result<bool> {
 async fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> Result<Address>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
-    let bin = bincode::serialize(&cmd)?;
+    let bin = serde_cbor::to_vec(&cmd)?;
     let mut buffers = state.buffers.write().expect("lock");
     buffers.push(bin);
     let addr = u64::try_from(buffers.len()).expect("u64");
@@ -80,7 +80,7 @@ where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
     let bin = buffers.get(addr).ok_or_else(|| {
         anyhow!("no command at address {}", addr)
     })?;
-    let cmd = bincode::deserialize(bin)?;
+    let cmd = serde_cbor::from_slice(bin)?;
     let next = addr.checked_add(1).expect("overflow");
     let next = buffers.get(next).map(|_| next);
     let next = next.map(|n| u64::try_from(n).expect("u64"));

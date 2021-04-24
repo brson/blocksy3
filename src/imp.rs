@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::path::{PathBuf, Path};
 use crate::log::Log;
 use crate::simple_log_file;
+use crate::mem_log_file;
 use crate::command::Command;
 use crate::commit_log::CommitCommand;
 use crate::fs_thread::FsThread;
@@ -15,7 +16,7 @@ use std::ops::Deref;
 
 #[derive(Clone, Debug)]
 pub struct DbConfig {
-    pub dir: PathBuf,
+    pub dir: Option<PathBuf>,
     pub trees: Vec<String>,
 }
 
@@ -24,7 +25,7 @@ pub struct Db {
     config: Arc<DbConfig>,
     inner: Arc<bdb::Db>,
     trees: Arc<Vec<String>>,
-    dir_handle: Option<Arc<File>>, // Unix only
+    dir_handle: Option<Arc<File>>, // Unix only, non-mem only
 }
 
 pub struct WriteBatch {
@@ -60,8 +61,12 @@ impl Db {
         db.init().await?;
 
         let dir_handle = if cfg!(unix) {
-            // FIXME async file open
-            Some(Arc::new(File::open(&config.dir)?))
+            if let Some(ref dir) = config.dir {
+                // FIXME async file open
+                Some(Arc::new(File::open(dir)?))
+            } else {
+                None
+            }
         } else {
             None
         };
@@ -76,28 +81,39 @@ impl Db {
         });
 
         fn make_logs(config: &DbConfig) -> Result<(BTreeMap<String, Log<Command>>, Log<CommitCommand>)> {
-            // FIXME: async create dir
-            fs::create_dir_all(&config.dir)?;
 
-            let fs_thread = Arc::new(FsThread::start()?);
+            if let Some(ref dir) = config.dir {
+                // FIXME: async create dir
+                fs::create_dir_all(dir)?;
 
-            let tree_logs = config.trees.iter()
-                .map(|tree| {
-                    let path = config.dir.join(format!("{}.toml", tree));
-                    (tree.clone(), path)
-                });
+                let fs_thread = Arc::new(FsThread::start()?);
 
-            assert!(!config.trees.iter().any(|t| t == "commits"));
-            let commit_log = config.dir.join(format!("commits.toml"));
+                let tree_logs = config.trees.iter()
+                    .map(|tree| {
+                        let path = dir.join(format!("{}.toml", tree));
+                        (tree.clone(), path)
+                    });
 
-            let tree_logs = tree_logs.into_iter()
-                .map(|(tree, path)| {
-                    (tree, Log::new(simple_log_file::create(path, fs_thread.clone())))
+                assert!(!config.trees.iter().any(|t| t == "commits"));
+                let commit_log = dir.join(format!("commits.toml"));
+
+                let tree_logs = tree_logs.into_iter()
+                    .map(|(tree, path)| {
+                        (tree, Log::new(simple_log_file::create(path, fs_thread.clone())))
+                    }).collect();
+
+                let commit_log = Log::new(simple_log_file::create(commit_log, fs_thread.clone()));
+
+                Ok((tree_logs, commit_log))
+            } else {
+                let tree_logs = config.trees.iter().cloned().map(|tree| {
+                    (tree, Log::new(mem_log_file::create()))
                 }).collect();
 
-            let commit_log = Log::new(simple_log_file::create(commit_log, fs_thread.clone()));
+                let commit_log = Log::new(mem_log_file::create());
 
-            Ok((tree_logs, commit_log))
+                Ok((tree_logs, commit_log))
+            }
         }
     }
 

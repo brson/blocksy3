@@ -96,10 +96,10 @@ fn main() -> Result<()> {
 async fn run() -> Result<()> {
     env_logger::init();
 
-    let commands = parse_commands()?;
+    let (path, commands) = parse_commands()?;
 
     let config = db::DbConfig {
-        dir: PathBuf::from("testdb"),
+        dir: path,
         trees: vec!["t1".to_string(), "t2".to_string()],
     };
 
@@ -242,11 +242,18 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-fn parse_commands() -> Result<Vec<Command>> {
+fn parse_commands() -> Result<(Option<PathBuf>, Vec<Command>)> {
     let args = &mut env::args();
     let mut commands = vec![];
 
     args.next();
+
+    let path = args.next().ok_or_else(|| anyhow!("expected path or mem"))?;
+    let path = if path != "mem" {
+        Some(PathBuf::from(path))
+    } else {
+        None
+    };
 
     loop {
         if let Some(next_command) = args.next() {
@@ -359,7 +366,7 @@ fn parse_commands() -> Result<Vec<Command>> {
             };
             commands.push(cmd);
         } else {
-            return Ok(commands);
+            return Ok((path, commands));
         }
     }
 
