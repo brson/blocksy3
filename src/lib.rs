@@ -6,6 +6,7 @@ mod basic_db;
 mod batch_player;
 mod command;
 mod commit_log;
+mod compacting_tree;
 mod facade;
 mod frame;
 mod fs_thread;
