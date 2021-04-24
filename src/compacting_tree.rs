@@ -1,20 +1,12 @@
 use anyhow::Result;
 use async_channel::{self, Sender, Receiver};
 use std::sync::{RwLock, Mutex, Arc, RwLockWriteGuard};
-use crate::tree::Tree;
+use crate::tree::{self, Tree};
 use crate::types::{Commit, Batch, BatchCommit};
 
-/*
-Compacted files are special, having a single batch, batch commit,
-and commit number that doesn't matter.
-For simplicity these are 0,
-meaning that the active trees and commit logs should start their
-counts of these numbers at 1, not 0.
-*/
-
-static COMPACTED_BATCH_NUM: Batch = Batch(u64::max_value());
-static COMPACTED_BATCH_COMMIT_NUM: BatchCommit = BatchCommit(u64::max_value());
-static COMPACTED_COMMIT_NUM: Commit = Commit(u64::max_value());
+/// Just one batch number in compacted logs
+const COMPACTED_BATCH_NUM: Batch = Batch(0);
+const COMPACTED_BATCH_COMMIT_NUM: BatchCommit = BatchCommit(0);
 
 pub struct CompactingTree {
     trees: Arc<RwLock<Trees>>,
@@ -60,6 +52,7 @@ pub struct BatchWriter {
 }
 
 pub struct Cursor {
+    tree_cursors: Vec<tree::Cursor>,
 }
 
 impl CompactingTree {
@@ -104,18 +97,28 @@ impl CompactingTree {
                 drop(trees);
             }
 
-            let commit_limit = self.wait_for_all_writes_to_compacting_tree().await?;
+            let last_commit = self.wait_for_all_writes_to_compacting_tree().await?;
+            let commit_limit = Commit(last_commit.0.checked_add(1).expect("overflow"));
 
             // Open a cursor for the compacting tree,
             // and the compacted tree, and a writer
             // for the compacted_wip tree.
-            {
+            let (cursor, writer) = {
                 let trees = self.trees.read().expect("lock");
                 let compacting_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
+                let compacted_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
                 let compacted_wip_writer = trees.compacted_wip.as_ref().expect("tree").batch(COMPACTED_BATCH_NUM);
 
-                panic!()
-            }
+                drop(trees);
+
+                let cursor = Cursor {
+                    tree_cursors: vec![compacting_cursor, compacted_cursor],
+                };
+
+                (cursor, compacted_wip_writer)
+            };
+
+            panic!()
         }.await;
 
         {
