@@ -1,5 +1,6 @@
+use std::convert::TryFrom;
 use crate::types::Address;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use std::future::Future;
 use std::sync::{Arc, RwLock};
 use crate::log_file::LogFile;
@@ -56,19 +57,35 @@ struct State {
 type Buffer = Vec<u8>;
 
 async fn is_empty(state: Arc<State>) -> Result<bool> {
-    panic!()
+    let buffers = state.buffers.read().expect("lock");
+    Ok(buffers.is_empty())
 }
 
 async fn append<Cmd>(state: Arc<State>, cmd: Cmd) -> Result<Address>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
-    panic!()
+    let bin = bincode::serialize(&cmd)?;
+    let mut buffers = state.buffers.write().expect("lock");
+    buffers.push(bin);
+    let addr = u64::try_from(buffers.len()).expect("u64");
+    let addr = addr - 1;
+    Ok(Address(addr))
 }
 
 async fn read_at<Cmd>(state: Arc<State>, addr: Address) -> Result<(Cmd, Option<Address>)>
 where Cmd: Serialize + for <'de> Deserialize<'de> + Send + 'static
 {
-    panic!()
+    let addr = usize::try_from(addr.0).expect("usize");
+    let buffers = state.buffers.read().expect("lock");
+    let bin = buffers.get(addr).ok_or_else(|| {
+        anyhow!("no command at address {}", addr)
+    })?;
+    let cmd = bincode::deserialize(bin)?;
+    let next = addr.checked_add(1).expect("overflow");
+    let next = buffers.get(next).map(|_| next);
+    let next = next.map(|n| u64::try_from(n).expect("u64"));
+    let next = next.map(|n| Address(n));
+    Ok((cmd, next))
 }
 
 async fn sync(state: Arc<State>) -> Result<()> {
