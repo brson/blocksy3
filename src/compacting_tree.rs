@@ -170,30 +170,49 @@ impl Cursor {
     }
 
     pub fn seek_first(&mut self) {
-        let mut min_key_idx = None;
-        for (idx, tree) in self.trees.iter_mut().enumerate() {
+        let mut key_idx = None;
+        for (new_idx, tree) in self.trees.iter_mut().enumerate() {
             tree.seek_first();
             if tree.valid() {
-                let key = tree.key();
-                if let Some((ref min_key, ref min_idx)) = min_key_idx {
-                    if key < *min_key {
-                        min_key_idx = Some((key, idx));
+                let new_key = tree.key();
+                if let Some((ref old_key, _)) = key_idx {
+                    if new_key < *old_key {
+                        key_idx = Some((new_key, new_idx));
                     } else {
                         /* pass */
                     }
                 } else {
-                    min_key_idx = Some((key, idx));
+                    key_idx = Some((new_key, new_idx));
                 }
             }
         }
 
-        if let Some((_, idx)) = min_key_idx {
+        if let Some((_, idx)) = key_idx {
             self.current = Some(idx);
         }
     }
 
     pub fn seek_last(&mut self) {
-        panic!()
+        let mut key_idx = None;
+        for (new_idx, tree) in self.trees.iter_mut().enumerate() {
+            tree.seek_last();
+            if tree.valid() {
+                let new_key = tree.key();
+                if let Some((ref old_key, _)) = key_idx {
+                    if new_key > *old_key {
+                        key_idx = Some((new_key, new_idx));
+                    } else {
+                        /* pass */
+                    }
+                } else {
+                    key_idx = Some((new_key, new_idx));
+                }
+            }
+        }
+
+        if let Some((_, idx)) = key_idx {
+            self.current = Some(idx);
+        }
     }
 
     pub fn seek_key(&mut self, key: Key) {
