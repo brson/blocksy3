@@ -162,10 +162,16 @@ impl Cursor {
     }
 
     pub fn next(&mut self) {
+        assert!(self.valid());
+        let current_idx = self.current.expect("valid");
+        let current_key = self.trees[current_idx].key();
         panic!()
     }
 
     pub fn prev(&mut self) {
+        assert!(self.valid());
+        let current_idx = self.current.expect("valid");
+        let current_key = self.trees[current_idx].key();
         panic!()
     }
 
@@ -216,10 +222,48 @@ impl Cursor {
     }
 
     pub fn seek_key(&mut self, key: Key) {
-        panic!()
+        let mut key_idx = None;
+        for (new_idx, tree) in self.trees.iter_mut().enumerate() {
+            tree.seek_key(key.clone());
+            if tree.valid() {
+                let new_key = tree.key();
+                if let Some((ref old_key, _)) = key_idx {
+                    if new_key < *old_key {
+                        key_idx = Some((new_key, new_idx));
+                    } else {
+                        /* pass */
+                    }
+                } else {
+                    key_idx = Some((new_key, new_idx));
+                }
+            }
+        }
+
+        if let Some((_, idx)) = key_idx {
+            self.current = Some(idx);
+        }
     }
 
     pub fn seek_key_rev(&mut self, key: Key) {
-        panic!()
+        let mut key_idx = None;
+        for (new_idx, tree) in self.trees.iter_mut().enumerate() {
+            tree.seek_key_rev(key.clone());
+            if tree.valid() {
+                let new_key = tree.key();
+                if let Some((ref old_key, _)) = key_idx {
+                    if new_key > *old_key {
+                        key_idx = Some((new_key, new_idx));
+                    } else {
+                        /* pass */
+                    }
+                } else {
+                    key_idx = Some((new_key, new_idx));
+                }
+            }
+        }
+
+        if let Some((_, idx)) = key_idx {
+            self.current = Some(idx);
+        }
     }
 }
