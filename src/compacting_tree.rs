@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_channel::{self, Sender, Receiver};
 use std::sync::{RwLock, Mutex, Arc, RwLockWriteGuard};
 use crate::tree::{self, Tree};
-use crate::types::{Commit, Batch, BatchCommit};
+use crate::types::{Commit, Batch, BatchCommit, Key, Value};
 
 /// Just one batch number in compacted logs
 const COMPACTED_BATCH_NUM: Batch = Batch(0);
@@ -52,7 +52,8 @@ pub struct BatchWriter {
 }
 
 pub struct Cursor {
-    tree_cursors: Vec<tree::Cursor>,
+    trees: Vec<tree::Cursor>,
+    current: Option<usize>,
 }
 
 impl CompactingTree {
@@ -112,7 +113,8 @@ impl CompactingTree {
                 drop(trees);
 
                 let cursor = Cursor {
-                    tree_cursors: vec![compacting_cursor, compacted_cursor],
+                    trees: vec![compacting_cursor, compacted_cursor],
+                    current: None,
                 };
 
                 (cursor, compacted_wip_writer)
@@ -138,6 +140,67 @@ impl CompactingTree {
     }
 
     async fn wait_for_all_writes_to_compacting_tree(&self) -> Result<Commit> {
+        panic!()
+    }
+}
+
+impl Cursor {
+    pub fn valid(&self) -> bool {
+        self.current.is_some()
+    }
+
+    pub fn key(&self) -> Key {
+        let idx = self.current.expect("invalid cursor");
+        let tree = &self.trees[idx];
+        tree.key()
+    }
+
+    pub async fn value(&mut self) -> Result<Value> {
+        let idx = self.current.expect("invalid cursor");
+        let tree = &mut self.trees[idx];
+        tree.value().await
+    }
+
+    pub fn next(&mut self) {
+        panic!()
+    }
+
+    pub fn prev(&mut self) {
+        panic!()
+    }
+
+    pub fn seek_first(&mut self) {
+        let mut min_key_idx = None;
+        for (idx, tree) in self.trees.iter_mut().enumerate() {
+            tree.seek_first();
+            if tree.valid() {
+                let key = tree.key();
+                if let Some((ref min_key, ref min_idx)) = min_key_idx {
+                    if key < *min_key {
+                        min_key_idx = Some((key, idx));
+                    } else {
+                        /* pass */
+                    }
+                } else {
+                    min_key_idx = Some((key, idx));
+                }
+            }
+        }
+
+        if let Some((_, idx)) = min_key_idx {
+            self.current = Some(idx);
+        }
+    }
+
+    pub fn seek_last(&mut self) {
+        panic!()
+    }
+
+    pub fn seek_key(&mut self, key: Key) {
+        panic!()
+    }
+
+    pub fn seek_key_rev(&mut self, key: Key) {
         panic!()
     }
 }
