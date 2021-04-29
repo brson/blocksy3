@@ -8,7 +8,11 @@ use crate::types::{Key, Address, Commit};
 
 pub struct Index {
     maybe_next_commit: AtomicU64,
-    keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
+    state: Arc<RwLock<IndexState>>,
+}
+
+struct IndexState {
+    keymap: BTreeMap<Key, Arc<Node>>,
 }
 
 #[derive(Debug)]
@@ -22,13 +26,13 @@ struct Node {
 pub struct Cursor {
     commit_limit: Commit,
     current: Option<(Arc<Node>, Address)>,
-    keymap: Arc<RwLock<BTreeMap<Key, Arc<Node>>>>,
+    state: Arc<RwLock<IndexState>>,
 }
 
 pub struct Writer<'index> {
     commit: Commit,
     maybe_next_commit: &'index AtomicU64,
-    keymap: RwLockWriteGuard<'index, BTreeMap<Key, Arc<Node>>>,
+    state: RwLockWriteGuard<'index, IndexState>,
 }
 
 #[derive(Copy, Clone)]
@@ -42,14 +46,16 @@ impl Index {
     pub fn new() -> Index {
         Index {
             maybe_next_commit: AtomicU64::new(0),
-            keymap: Arc::new(RwLock::new(BTreeMap::new())),
+            state: Arc::new(RwLock::new(IndexState {
+                keymap: BTreeMap::new(),
+            })),
         }
     }
 
     pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
         assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
-        let map = self.keymap.read().expect("lock");
-        if let Some(node) = map.get(key) {
+        let state = self.state.read().expect("lock");
+        if let Some(node) = state.keymap.get(key) {
             let history = node.history.read().expect("lock");
             for (h_commit, value) in history.iter().rev() {
                 if *h_commit < commit_limit {
@@ -74,7 +80,7 @@ impl Index {
         Cursor {
             commit_limit,
             current: None,
-            keymap: self.keymap.clone(),
+            state: self.state.clone(),
         }
     }
 
@@ -83,7 +89,7 @@ impl Index {
         Writer {
             commit: commit,
             maybe_next_commit: &self.maybe_next_commit,
-            keymap: self.keymap.write().expect("lock"),
+            state: self.state.write().expect("lock"),
         }
     }
 }
@@ -91,7 +97,8 @@ impl Index {
 impl Drop for Index {
     fn drop(&mut self) {
         // Don't panic on drop
-        if let Ok(mut keymap) = self.keymap.write() {
+        if let Ok(mut state) = self.state.write() {
+            let mut keymap = &mut state.keymap;
             for (_, mut node) in keymap.iter_mut() {
                 let err = || error!("failed index unlink due to lock poison");
                 if let Ok(mut prev) = node.prev.write() {
@@ -157,26 +164,26 @@ impl Cursor {
     }
 
     pub fn seek_first(&mut self) {
-        let keymap = self.keymap.read().expect("lock");
-        let iter = keymap.iter();
+        let state = self.state.read().expect("lock");
+        let iter = state.keymap.iter();
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_last(&mut self) {
-        let keymap = self.keymap.read().expect("lock");
-        let iter = keymap.iter().rev();
+        let state = self.state.read().expect("lock");
+        let iter = state.keymap.iter().rev();
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key(&mut self, key: Key) {
-        let keymap = self.keymap.read().expect("lock");
-        let iter = keymap.range(key..);
+        let state = self.state.read().expect("lock");
+        let iter = state.keymap.range(key..);
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key_rev(&mut self, key: Key) {
-        let keymap = self.keymap.read().expect("lock");
-        let iter = keymap.range(..=key).rev();
+        let state = self.state.read().expect("lock");
+        let iter = state.keymap.range(..=key).rev();
         self.current = self.first_within_commit_limit(iter);
     }
 
@@ -217,7 +224,7 @@ impl<'index> Writer<'index> {
 
     pub fn delete_range(&mut self, range: Range<Key>, addr: Address)
     {
-        for (_, node) in self.keymap.range_mut(range) {
+        for (_, node) in self.state.keymap.range_mut(range) {
             let mut history = node.history.write().expect("lock");
             history.push((self.commit, ReadValue::Deleted(addr)));
         }
@@ -225,12 +232,12 @@ impl<'index> Writer<'index> {
 
     fn update_value(&mut  self, key: Key, value: ReadValue) {
         let new_node;
-        if let Some(node) = self.keymap.get(&key) {
+        if let Some(node) = self.state.keymap.get(&key) {
             // key already exists
             let mut history = node.history.write().expect("lock");
             history.push((self.commit, value));
             new_node = None;
-        } else if let Some((_, next)) = self.keymap.range(key.clone()..).next() {
+        } else if let Some((_, next)) = self.state.keymap.range(key.clone()..).next() {
             // next key exists
             let mut next_prev = next.prev.write().expect("lock");
             let new = Arc::new(Node {
@@ -245,7 +252,7 @@ impl<'index> Writer<'index> {
             }
             *next_prev = Some(new.clone());
             new_node = Some(new);
-        } else if let Some((_, prev)) = self.keymap.range(..=key.clone()).rev().next() {
+        } else if let Some((_, prev)) = self.state.keymap.range(..=key.clone()).rev().next() {
             // prev key exists
             let mut prev_next = prev.next.write().expect("lock");
             let new = Arc::new(Node {
@@ -262,7 +269,7 @@ impl<'index> Writer<'index> {
             new_node = Some(new);
         } else {
             // no key exists
-            assert!(self.keymap.is_empty());
+            assert!(self.state.keymap.is_empty());
             let new = Arc::new(Node {
                 key: key.clone(),
                 prev: RwLock::new(None),
@@ -272,7 +279,7 @@ impl<'index> Writer<'index> {
             new_node = Some(new);
         }
         if let Some(new_node) = new_node {
-            self.keymap.insert(key, new_node);
+            self.state.keymap.insert(key, new_node);
         }
     }
 }
