@@ -3,7 +3,7 @@ pub use std::sync::Arc;
 pub use std::sync::{RwLock, RwLockWriteGuard};
 pub use std::sync::atomic::{AtomicU64, Ordering};
 pub use std::collections::btree_map::{BTreeMap, Entry};
-pub use std::ops::RangeBounds;
+pub use std::ops::Range;
 use crate::types::{Key, Address, Commit};
 
 pub struct Index {
@@ -215,8 +215,7 @@ impl<'index> Writer<'index> {
         self.update_value(key, ReadValue::Deleted(addr))
     }
 
-    pub fn delete_range<R>(&mut self, range: R, addr: Address)
-    where R: RangeBounds<Key>
+    pub fn delete_range(&mut self, range: Range<Key>, addr: Address)
     {
         for (_, node) in self.keymap.range_mut(range) {
             let mut history = node.history.write().expect("lock");
