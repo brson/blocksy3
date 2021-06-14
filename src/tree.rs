@@ -2,11 +2,12 @@ use std::pin::Pin;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::convert::TryFrom;
 use crate::types::{Batch, BatchCommit, Commit, Key, Value, Address};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
-use crate::index::{self, Index};
+use crate::index::{self, Index, BatchIdx};
 use anyhow::{Result, anyhow, bail};
 use futures::{Stream, StreamExt};
 
@@ -465,16 +466,17 @@ fn commit_to_index(batch_player: &BatchPlayer,
                    commit: Commit) {
     let index_ops = batch_player.replay(batch, batch_commit);
     let mut writer = index.writer(commit);
-    for op in index_ops {
+    for (idx, op) in index_ops.enumerate() {
+        let idx = BatchIdx(u32::try_from(idx).expect("u32"));
         match op {
             IndexOp::Write { key, address } => {
-                writer.write(key, address);
+                writer.write(key, address, idx);
             },
             IndexOp::Delete { key, address } => {
-                writer.delete(key, address);
+                writer.delete(key, address, idx);
             },
             IndexOp::DeleteRange { start_key, end_key, address } => {
-                writer.delete_range(start_key..end_key, address);
+                writer.delete_range(start_key..end_key, address, idx);
             },
         }
     }

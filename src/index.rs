@@ -1,10 +1,15 @@
-pub use log::error;
-pub use std::sync::Arc;
-pub use std::sync::{RwLock, RwLockWriteGuard};
-pub use std::sync::atomic::{AtomicU64, Ordering};
-pub use std::collections::btree_map::{BTreeMap, Entry};
-pub use std::ops::Range;
+use log::error;
+use std::sync::Arc;
+use std::sync::{RwLock, RwLockWriteGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::btree_map::{BTreeMap, Entry};
+use std::ops::Range;
 use crate::types::{Key, Address, Commit};
+
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug)]
+#[derive(Copy, Clone)]
+pub struct BatchIdx(pub u32);
 
 pub struct Index {
     maybe_next_commit: AtomicU64,
@@ -13,7 +18,7 @@ pub struct Index {
 
 struct IndexState {
     keymap: BTreeMap<Key, Arc<Node>>,
-    range_deletes: Vec<(Commit, Range<Key>)>,
+    range_deletes: Vec<(Commit, Range<Key>, BatchIdx)>,
 }
 
 #[derive(Debug)]
@@ -21,7 +26,7 @@ struct Node {
     key: Key,
     prev: RwLock<Option<Arc<Node>>>,
     next: RwLock<Option<Arc<Node>>>,
-    history: RwLock<Vec<(Commit, ReadValue)>>,
+    history: RwLock<Vec<(Commit, ReadValue, BatchIdx)>>,
 }
 
 pub struct Cursor {
@@ -104,7 +109,7 @@ impl Drop for Index {
 }
 
 impl IndexState {
-    fn point_query(&self, commit_limit: Commit, key: &Key) -> Option<(Commit, ReadValue)> {
+    fn point_query(&self, commit_limit: Commit, key: &Key) -> Option<(Commit, ReadValue, BatchIdx)> {
         if let Some(node) = self.keymap.get(key) {
             self.node_value_within_commit_limit(commit_limit, node)
         } else {
@@ -112,19 +117,19 @@ impl IndexState {
         }
     }
 
-    fn node_value_within_commit_limit(&self, commit_limit: Commit, node: &Node) -> Option<(Commit, ReadValue)> {
+    fn node_value_within_commit_limit(&self, commit_limit: Commit, node: &Node) -> Option<(Commit, ReadValue, BatchIdx)> {
         let history = node.history.read().expect("lock");
         let mut rev_iter = history.iter().rev();
-        let most_recent = rev_iter.find(|(commit, _)| *commit < commit_limit);
+        let most_recent = rev_iter.find(|(commit, _, _)| *commit < commit_limit);
         most_recent.cloned()
     }
 
-    fn range_delete_query(&self, commit_limit: Commit, key: &Key) -> Option<Commit> {
+    fn range_delete_query(&self, commit_limit: Commit, key: &Key) -> Option<(Commit, BatchIdx)> {
         let mut rev_iter = self.range_deletes.iter().rev();
-        let match_ = rev_iter.find(|(commit, range)| {
+        let match_ = rev_iter.find(|(commit, range, _)| {
             *commit < commit_limit && range.contains(key)
         });
-        match_.map(|(commit, _)| *commit)
+        match_.map(|(commit, _, batch_idx)| (*commit, *batch_idx))
     }
 
     fn key_true_value(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
@@ -140,30 +145,32 @@ impl IndexState {
     }
 
     fn inner_true_value(&self,
-                        point_result: Option<(Commit, ReadValue)>,
-                        range_delete_result: Option<Commit>) -> Option<Address> {
+                        point_result: Option<(Commit, ReadValue, BatchIdx)>,
+                        range_delete_result: Option<(Commit, BatchIdx)>) -> Option<Address> {
         match (point_result, range_delete_result) {
             (None, Some(_)) => {
                 None
             },
-            (Some((p_commit, ReadValue::Written(addr))), Some(rd_commit)) => {
+            (Some((p_commit, ReadValue::Written(addr), p_batch_idx)), Some((rd_commit, rd_batch_idx))) => {
                 if p_commit > rd_commit {
                     Some(addr)
                 } else if p_commit == rd_commit {
-                    // FIXME: This doesn't handle cases where write and delete
-                    // are in same commit
-                    panic!();
+                    if p_batch_idx > rd_batch_idx {
+                        Some(addr)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             },
-            (Some((_, ReadValue::Deleted(addr))), Some(_)) => {
+            (Some((_, ReadValue::Deleted(addr), _)), Some(_)) => {
                 None
             },
-            (Some((_, ReadValue::Written(addr))), None) => {
+            (Some((_, ReadValue::Written(addr), _)), None) => {
                 Some(addr)
             },
-            (Some((_, ReadValue::Deleted(addr))), None) => {
+            (Some((_, ReadValue::Deleted(addr), _)), None) => {
                 None
             },
             (None, None) => {
@@ -257,25 +264,25 @@ impl Cursor {
 }
 
 impl<'index> Writer<'index> {
-    pub fn write(&mut self, key: Key, addr: Address) {
-        self.update_value(key, ReadValue::Written(addr))
+    pub fn write(&mut self, key: Key, addr: Address, batch_idx: BatchIdx) {
+        self.update_value(key, ReadValue::Written(addr), batch_idx)
     }
 
-    pub fn delete(&mut self, key: Key, addr: Address) {
-        self.update_value(key, ReadValue::Deleted(addr))
+    pub fn delete(&mut self, key: Key, addr: Address, batch_idx: BatchIdx) {
+        self.update_value(key, ReadValue::Deleted(addr), batch_idx)
     }
 
-    pub fn delete_range(&mut self, range: Range<Key>, addr: Address)
+    pub fn delete_range(&mut self, range: Range<Key>, addr: Address, batch_idx: BatchIdx)
     {
-        self.state.range_deletes.push((self.commit, range));
+        self.state.range_deletes.push((self.commit, range, batch_idx));
     }
 
-    fn update_value(&mut  self, key: Key, value: ReadValue) {
+    fn update_value(&mut  self, key: Key, value: ReadValue, batch_idx: BatchIdx) {
         let new_node;
         if let Some(node) = self.state.keymap.get(&key) {
             // key already exists
             let mut history = node.history.write().expect("lock");
-            history.push((self.commit, value));
+            history.push((self.commit, value, batch_idx));
             new_node = None;
         } else if let Some((_, next)) = self.state.keymap.range(key.clone()..).next() {
             // next key exists
@@ -284,7 +291,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(next_prev.clone()),
                 next: RwLock::new(Some(next.clone())),
-                history: RwLock::new(vec![(self.commit, value)]),
+                history: RwLock::new(vec![(self.commit, value, batch_idx)]),
             });
             if let Some(next_prev) = next_prev.as_ref() {
                 let mut next_prev_next = next_prev.next.write().expect("lock");
@@ -299,7 +306,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(Some(prev.clone())),
                 next: RwLock::new(prev_next.clone()),
-                history: RwLock::new(vec![(self.commit, value)]),
+                history: RwLock::new(vec![(self.commit, value, batch_idx)]),
             });
             if let Some(prev_next) = prev_next.as_ref() {
                 let mut prev_next_prev = prev_next.prev.write().expect("lock");
@@ -314,7 +321,7 @@ impl<'index> Writer<'index> {
                 key: key.clone(),
                 prev: RwLock::new(None),
                 next: RwLock::new(None),
-                history: RwLock::new(vec![(self.commit, value)]),
+                history: RwLock::new(vec![(self.commit, value, batch_idx)]),
             });
             new_node = Some(new);
         }
