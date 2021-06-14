@@ -13,6 +13,7 @@ pub struct Index {
 
 struct IndexState {
     keymap: BTreeMap<Key, Arc<Node>>,
+    range_deletes: Vec<(Commit, Range<Key>)>,
 }
 
 #[derive(Debug)]
@@ -48,6 +49,7 @@ impl Index {
             maybe_next_commit: AtomicU64::new(0),
             state: Arc::new(RwLock::new(IndexState {
                 keymap: BTreeMap::new(),
+                range_deletes: Vec::new(),
             })),
         }
     }
@@ -55,24 +57,7 @@ impl Index {
     pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
         assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
         let state = self.state.read().expect("lock");
-        if let Some(node) = state.keymap.get(key) {
-            let history = node.history.read().expect("lock");
-            for (h_commit, value) in history.iter().rev() {
-                if *h_commit < commit_limit {
-                    match value {
-                        ReadValue::Written(addr) => {
-                            return Some(*addr);
-                        },
-                        ReadValue::Deleted(addr) => {
-                            return None;
-                        }
-                    }
-                }
-            }
-            None
-        } else {
-            None
-        }
+        state.key_true_value(commit_limit, key)
     }
 
     pub fn cursor(&self, commit_limit: Commit) -> Cursor {
@@ -114,6 +99,76 @@ impl Drop for Index {
             }
         } else {
             error!("massive index leak due to lock poison");
+        }
+    }
+}
+
+impl IndexState {
+    fn point_query(&self, commit_limit: Commit, key: &Key) -> Option<(Commit, ReadValue)> {
+        if let Some(node) = self.keymap.get(key) {
+            self.node_value_within_commit_limit(commit_limit, node)
+        } else {
+            None
+        }
+    }
+
+    fn node_value_within_commit_limit(&self, commit_limit: Commit, node: &Node) -> Option<(Commit, ReadValue)> {
+        let history = node.history.read().expect("lock");
+        let mut rev_iter = history.iter().rev();
+        let most_recent = rev_iter.find(|(commit, _)| *commit < commit_limit);
+        most_recent.cloned()
+    }
+
+    fn range_delete_query(&self, commit_limit: Commit, key: &Key) -> Option<Commit> {
+        let mut rev_iter = self.range_deletes.iter().rev();
+        let match_ = rev_iter.find(|(commit, range)| {
+            *commit < commit_limit && range.contains(key)
+        });
+        match_.map(|(commit, _)| *commit)
+    }
+
+    fn key_true_value(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
+        let point_result = self.point_query(commit_limit, key);
+        let range_delete_result = self.range_delete_query(commit_limit, key);
+        self.inner_true_value(point_result, range_delete_result)
+    }
+
+    fn node_true_value(&self, commit_limit: Commit, node: &Node) -> Option<Address> {
+        let point_result = self.node_value_within_commit_limit(commit_limit, node);
+        let range_delete_result = self.range_delete_query(commit_limit, &node.key);
+        self.inner_true_value(point_result, range_delete_result)
+    }
+
+    fn inner_true_value(&self,
+                        point_result: Option<(Commit, ReadValue)>,
+                        range_delete_result: Option<Commit>) -> Option<Address> {
+        match (point_result, range_delete_result) {
+            (None, Some(_)) => {
+                None
+            },
+            (Some((p_commit, ReadValue::Written(addr))), Some(rd_commit)) => {
+                if p_commit > rd_commit {
+                    Some(addr)
+                } else if p_commit == rd_commit {
+                    // FIXME: This doesn't handle cases where write and delete
+                    // are in same commit
+                    panic!();
+                } else {
+                    None
+                }
+            },
+            (Some((_, ReadValue::Deleted(addr))), Some(_)) => {
+                None
+            },
+            (Some((_, ReadValue::Written(addr))), None) => {
+                Some(addr)
+            },
+            (Some((_, ReadValue::Deleted(addr))), None) => {
+                None
+            },
+            (None, None) => {
+                None
+            },
         }
     }
 }
@@ -188,20 +243,8 @@ impl Cursor {
     }
 
     fn value_within_commit_limit(&self, node: &Node) -> Option<Address> {
-        let history = node.history.read().expect("lock");
-        for (commit, value) in history.iter().rev() {
-            if *commit < self.commit_limit {
-                match value {
-                    ReadValue::Written(addr) => {
-                        return Some(*addr);
-                    },
-                    ReadValue::Deleted(_) => {
-                        return None;
-                    },
-                }
-            }
-        }
-        None
+        let state = self.state.read().expect("state");
+        state.node_true_value(self.commit_limit, node)
     }
 
     fn first_within_commit_limit<'a>(&self, iter: impl Iterator<Item = (&'a Key, &'a Arc<Node>)>) -> Option<(Arc<Node>, Address)> {
@@ -224,10 +267,7 @@ impl<'index> Writer<'index> {
 
     pub fn delete_range(&mut self, range: Range<Key>, addr: Address)
     {
-        for (_, node) in self.state.keymap.range_mut(range) {
-            let mut history = node.history.write().expect("lock");
-            history.push((self.commit, ReadValue::Deleted(addr)));
-        }
+        self.state.range_deletes.push((self.commit, range));
     }
 
     fn update_value(&mut  self, key: Key, value: ReadValue) {
