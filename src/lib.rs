@@ -19,3 +19,6 @@ mod mem_log_file;
 mod simple_log_file;
 mod tree;
 mod types;
+
+// A testing script language
+pub mod cmdscript;
