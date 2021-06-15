@@ -17,7 +17,7 @@ fn main() -> Result<()> {
 async fn run() -> Result<()> {
     env_logger::init();
 
-    let args = env::args();
+    let args = env::args().skip(1);
     let (path, commands) = db::cmdscript::parse_commands(args)?;
 
     db::cmdscript::exec(path, commands).await?;

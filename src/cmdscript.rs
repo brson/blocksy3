@@ -25,6 +25,11 @@ pub enum Command {
         tree: String,
         key: String,
     },
+    ReadAssert {
+        tree: String,
+        key: String,
+        expected_value: Option<String>,
+    },
     Iterate {
         tree: String,
     },
@@ -135,6 +140,19 @@ pub async fn exec(path: Option<PathBuf>, commands: Vec<Command>) -> Result<()> {
                     println!("{}: <none>", key);
                 }
             },
+            Command::ReadAssert { tree, key, expected_value } => {
+                let view = db.read_view();
+                let tree = view.tree(&tree);
+                let value = tree.read(key.as_bytes()).await?;
+                if let Some(value) = value {
+                    let value = String::from_utf8(value).expect("utf8");
+                    println!("{}: {}", key, value);
+                    assert_eq!(expected_value, Some(value));
+                } else {
+                    println!("{}: <none>", key);
+                    assert_eq!(expected_value, None);
+                }
+            },
             Command::Iterate { tree } => {
                 let view = db.read_view();
                 let tree = view.tree(&tree);
@@ -233,15 +251,18 @@ pub async fn exec(path: Option<PathBuf>, commands: Vec<Command>) -> Result<()> {
 pub fn parse_commands(iter: impl Iterator<Item = String>) -> Result<(Option<PathBuf>, Vec<Command>)> {
     let mut commands = vec![];
 
-    let mut iter = iter;
+    let mut iter = iter
+        .filter(|s| !s.is_empty());
     let iter = &mut iter;
-    iter.next();
 
     let path = iter.next().ok_or_else(|| anyhow!("expected path or mem"))?;
-    let path = if path != "mem" {
+    let path = if path == "path" {
+        let path = iter.next().ok_or_else(|| anyhow!("expected path or mem"))?;
         Some(PathBuf::from(path))
-    } else {
+    } else if path == "mem" {
         None
+    } else {
+        bail!("expected path or mem");
     };
 
     loop {
@@ -274,6 +295,12 @@ pub fn parse_commands(iter: impl Iterator<Item = String>) -> Result<(Option<Path
                     let tree = parse_tree(iter)?;
                     let key = parse_key(iter)?;
                     Command::Read { tree, key }
+                },
+                "read-assert" => {
+                    let tree = parse_tree(iter)?;
+                    let key = parse_key(iter)?;
+                    let expected_value = parse_expected_value(iter)?;
+                    Command::ReadAssert { tree, key, expected_value }
                 },
                 "iterate" => {
                     let tree = parse_tree(iter)?;
@@ -377,5 +404,16 @@ pub fn parse_commands(iter: impl Iterator<Item = String>) -> Result<(Option<Path
 
     fn parse_value(iter: &mut impl Iterator<Item = String>) -> Result<String> {
         iter.next().ok_or_else(|| anyhow!("expected key value"))
+    }
+
+    fn parse_expected_value(iter: &mut impl Iterator<Item = String>) -> Result<Option<String>> {
+        iter.next().ok_or_else(|| anyhow!("expected key value"))
+            .map(|s| {
+                if s == "<none>" {
+                    None
+                } else {
+                    Some(s)
+                }
+            })
     }
 }
