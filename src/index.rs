@@ -1,5 +1,7 @@
 use log::error;
 use std::sync::Arc;
+// Using parking lot specifically to avoid poisoning on the delete_range assertion
+use parking_lot::{RwLock as PlRwLock, RwLockWriteGuard as PlRwLockWriteGuard};
 use std::sync::{RwLock, RwLockWriteGuard};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::btree_map::{BTreeMap, Entry};
@@ -13,7 +15,7 @@ pub struct BatchIdx(pub u32);
 
 pub struct Index {
     maybe_next_commit: AtomicU64,
-    state: Arc<RwLock<IndexState>>,
+    state: Arc<PlRwLock<IndexState>>,
 }
 
 struct IndexState {
@@ -32,13 +34,13 @@ struct Node {
 pub struct Cursor {
     commit_limit: Commit,
     current: Option<(Arc<Node>, Address)>,
-    state: Arc<RwLock<IndexState>>,
+    state: Arc<PlRwLock<IndexState>>,
 }
 
 pub struct Writer<'index> {
     commit: Commit,
     maybe_next_commit: &'index AtomicU64,
-    state: RwLockWriteGuard<'index, IndexState>,
+    state: PlRwLockWriteGuard<'index, IndexState>,
 }
 
 #[derive(Copy, Clone)]
@@ -52,7 +54,7 @@ impl Index {
     pub fn new() -> Index {
         Index {
             maybe_next_commit: AtomicU64::new(0),
-            state: Arc::new(RwLock::new(IndexState {
+            state: Arc::new(PlRwLock::new(IndexState {
                 keymap: BTreeMap::new(),
                 range_deletes: Vec::new(),
             })),
@@ -61,7 +63,7 @@ impl Index {
 
     pub fn read(&self, commit_limit: Commit, key: &Key) -> Option<Address> {
         assert!(commit_limit <= Commit(self.maybe_next_commit.load(Ordering::SeqCst)));
-        let state = self.state.read().expect("lock");
+        let state = self.state.read();
         state.key_true_value(commit_limit, key)
     }
 
@@ -79,31 +81,27 @@ impl Index {
         Writer {
             commit: commit,
             maybe_next_commit: &self.maybe_next_commit,
-            state: self.state.write().expect("lock"),
+            state: self.state.write(),
         }
     }
 }
 
 impl Drop for Index {
     fn drop(&mut self) {
-        // Don't panic on drop
-        if let Ok(mut state) = self.state.write() {
-            let mut keymap = &mut state.keymap;
-            for (_, mut node) in keymap.iter_mut() {
-                let err = || error!("failed index unlink due to lock poison");
-                if let Ok(mut prev) = node.prev.write() {
-                    *prev = None;
-                } else {
-                    err();
-                }
-                if let Ok(mut next) = node.next.write() {
-                    *next = None;
-                } else {
-                    err();
-                }
+        let mut state = self.state.write();
+        let mut keymap = &mut state.keymap;
+        for (_, mut node) in keymap.iter_mut() {
+            let err = || error!("failed index unlink due to lock poison");
+            if let Ok(mut prev) = node.prev.write() {
+                *prev = None;
+            } else {
+                err();
             }
-        } else {
-            error!("massive index leak due to lock poison");
+            if let Ok(mut next) = node.next.write() {
+                *next = None;
+            } else {
+                err();
+            }
         }
     }
 }
@@ -226,31 +224,31 @@ impl Cursor {
     }
 
     pub fn seek_first(&mut self) {
-        let state = self.state.read().expect("lock");
+        let state = self.state.read();
         let iter = state.keymap.iter();
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_last(&mut self) {
-        let state = self.state.read().expect("lock");
+        let state = self.state.read();
         let iter = state.keymap.iter().rev();
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key(&mut self, key: Key) {
-        let state = self.state.read().expect("lock");
+        let state = self.state.read();
         let iter = state.keymap.range(key..);
         self.current = self.first_within_commit_limit(iter);
     }
 
     pub fn seek_key_rev(&mut self, key: Key) {
-        let state = self.state.read().expect("lock");
+        let state = self.state.read();
         let iter = state.keymap.range(..=key).rev();
         self.current = self.first_within_commit_limit(iter);
     }
 
     fn value_within_commit_limit(&self, node: &Node) -> Option<Address> {
-        let state = self.state.read().expect("state");
+        let state = self.state.read();
         state.node_true_value(self.commit_limit, node)
     }
 
