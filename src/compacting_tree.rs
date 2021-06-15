@@ -92,6 +92,7 @@ impl CompactingTree {
                 assert!(trees.compacting.is_none());
                 assert!(trees.compacted_wip.is_none());
 
+                // FIXME holding lock across await
                 self.move_active_tree_to_compacting(&mut trees).await?;
                 self.create_compacted_wip_tree(&mut trees).await?;
 
