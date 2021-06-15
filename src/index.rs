@@ -274,6 +274,7 @@ impl<'index> Writer<'index> {
 
     pub fn delete_range(&mut self, range: Range<Key>, addr: Address, batch_idx: BatchIdx)
     {
+        assert!(range.start <= range.end);
         self.state.range_deletes.push((self.commit, range, batch_idx));
     }
 
