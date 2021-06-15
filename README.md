@@ -30,10 +30,9 @@ documented or tested.
 ## Features
 
 - Tiny and readable
-- Multiple key/value collections, aka "column families"
-- Point reads
-- Read cursors / iterators over a consistent snapshot / view
-- Point deletes and range deletes
+- Multiple key/value collections ("column families")
+- Point reads and deletes
+- Range deletes
+- Consistent read views and cursors ("snapshots")
 - Atomically-committed write batches
-- Save points and rollbacks of write batches
-- Multiple commits per write batch
+  - With save points, rollbacks, and multiple commits
