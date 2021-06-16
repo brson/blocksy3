@@ -2,6 +2,24 @@
 
 pub use facade::*;
 
+pub mod raw {
+    pub mod fs_thread {
+        pub use crate::fs_thread::*;
+    }
+    pub mod log {
+        pub use crate::log::*;
+    }
+    pub mod simple_log_file {
+        pub use crate::simple_log_file::*;
+    }
+    pub mod tree {
+        pub use crate::tree::*;
+    }
+    pub mod types {
+        pub use crate::types::*;
+    }
+}
+
 mod basic_db;
 mod batch_player;
 mod command;
