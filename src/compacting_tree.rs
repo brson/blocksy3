@@ -84,8 +84,8 @@ impl CompactingTree {
             drop(compact_state);
         }
 
-        let r = async {
-            // Move trees around for future readers and writers
+        let r: Result<_> = async {
+            // Set up trees for compaction mode
             {
                 let mut trees = self.trees.write().expect("lock");
 
@@ -99,13 +99,13 @@ impl CompactingTree {
                 drop(trees);
             }
 
-            let last_commit = self.wait_for_all_writes_to_compacting_tree().await?;
-            let commit_limit = Commit(last_commit.0.checked_add(1).expect("overflow"));
-
             // Open a cursor for the compacting tree,
             // and the compacted tree, and a writer
             // for the compacted_wip tree.
             let (cursor, writer) = {
+                let last_commit = self.wait_for_all_writes_to_compacting_tree().await?;
+                let commit_limit = Commit(last_commit.0.checked_add(1).expect("overflow"));
+
                 let trees = self.trees.read().expect("lock");
                 let compacting_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
                 let compacted_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
@@ -121,7 +121,47 @@ impl CompactingTree {
                 (cursor, compacted_wip_writer)
             };
 
-            panic!()
+            {
+                let mut cursor = cursor;
+                let writer = writer;
+
+                cursor.seek_first();
+                writer.open().await?;
+
+                while cursor.valid() {
+                    let key = cursor.key();
+                    let value = cursor.value().await?;
+                    writer.write(key, value).await?;
+                }
+
+                writer.ready_commit(COMPACTED_BATCH_COMMIT_NUM).await?;
+                writer.close().await?;
+            }
+
+            Ok(())
+        }.await;
+
+        // Move trees around to end compaction
+        let r = async {
+            match r {
+                Ok(_) => {
+                    let mut trees = self.trees.write().expect("lock");
+
+                    assert!(trees.compacting.is_some());
+                    assert!(trees.compacted_wip.is_some());
+
+                    // FIXME holding lock across await
+                    /*self.move_compacted_to_trash().await?;
+                    self.move_compacted_wip_to_compacted().await?;
+                    self.move_compacting_to_trash().await?;
+                    self.try_empty_trash().await?;*/
+                }
+                Err(e) => {
+                    panic!()
+                }
+            }
+
+            Ok(true)
         }.await;
 
         {
