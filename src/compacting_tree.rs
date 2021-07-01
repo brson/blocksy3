@@ -84,7 +84,7 @@ impl CompactingTree {
             drop(compact_state);
         }
 
-        let r: Result<_> = async {
+        let compaction_result: Result<_> = async {
             // Set up trees for compaction mode
             {
                 let mut trees = self.trees.write().expect("lock");
@@ -142,8 +142,8 @@ impl CompactingTree {
         }.await;
 
         // Move trees around to end compaction
-        let r = async {
-            match r {
+        let end_compaction_result = async {
+            match compaction_result {
                 Ok(_) => {
                     let mut trees = self.trees.write().expect("lock");
 
@@ -169,7 +169,7 @@ impl CompactingTree {
 
         self.try_empty_trash().await?;
 
-        r
+        end_compaction_result
     }
 
     async fn move_active_tree_to_compacting(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
