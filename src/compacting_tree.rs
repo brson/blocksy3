@@ -17,10 +17,10 @@ struct Trees {
     /// The tree that future write batches will write to
     ///
     /// This is the first tree searched for reads.
-    active: Tree,
+    active: Option<Tree>,
     /// The tree that is being compacted.
     /// There may be outstanding write batches or read views
-    /// attached to this at the time of compaction is requested.
+    /// attached to this at the time compaction is requested.
     /// Compaction will not actually begin until all batches
     /// against it are closed, making the tree "done".
     ///
@@ -151,13 +151,11 @@ impl CompactingTree {
                     assert!(trees.compacted_wip.is_some());
 
                     // FIXME holding lock across await
-                    /*self.move_compacted_to_trash().await?;
-                    self.move_compacted_wip_to_compacted().await?;
-                    self.move_compacting_to_trash().await?;
-                    self.try_empty_trash().await?;*/
+                    self.move_compacted_tree_to_trash(&mut trees).await?;
+                    self.move_compacted_wip_tree_to_compacted(&mut trees).await?;
                 }
                 Err(e) => {
-                    panic!()
+                    todo!()
                 }
             }
 
@@ -169,19 +167,33 @@ impl CompactingTree {
             *compact_state = CompactState::NotCompacting;
         }
 
+        self.try_empty_trash().await?;
+
         r
     }
 
     async fn move_active_tree_to_compacting(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
-        panic!()
+        todo!()
     }
 
     async fn create_compacted_wip_tree(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
-        panic!()
+        todo!()
+    }
+
+    async fn move_compacted_tree_to_trash(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+        todo!()
+    }
+
+    async fn move_compacted_wip_tree_to_compacted(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+        todo!()
     }
 
     async fn wait_for_all_writes_to_compacting_tree(&self) -> Result<Commit> {
-        panic!()
+        todo!()
+    }
+
+    async fn try_empty_trash(&self) -> Result<()> {
+        todo!()
     }
 }
 
