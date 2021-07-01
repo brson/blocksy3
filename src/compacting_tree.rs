@@ -94,6 +94,7 @@ impl CompactingTree {
 
                 // FIXME holding lock across await
                 self.move_active_tree_to_compacting(&mut trees).await?;
+                // FIXME if this fails the trees will be inconsistent
                 self.create_compacted_wip_tree(&mut trees).await?;
 
                 drop(trees);
@@ -152,6 +153,7 @@ impl CompactingTree {
 
                     // FIXME holding lock across await
                     self.move_compacted_tree_to_trash(&mut trees).await?;
+                    // FIXME if this fails the trees will be inconsistent
                     self.move_compacted_wip_tree_to_compacted(&mut trees).await?;
                 }
                 Err(e) => {
@@ -161,6 +163,8 @@ impl CompactingTree {
 
             Ok(true)
         }.await;
+
+        // FIXME how to recover if end_compaction_result is an error?
 
         {
             let mut compact_state = self.compact_state.lock().expect("lock");
