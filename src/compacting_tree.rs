@@ -219,13 +219,33 @@ impl CompactingTree {
     async fn move_trees_for_compaction(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
         // Move active to compacting
         // Create compacted_wip
-        todo!()
+        match &**trees {
+            Trees::Initial { active } => {
+                todo!()
+            },
+            Trees::Normal { active, compacted, trash } => {
+                todo!()
+            },
+            Trees::InitialCompacting { .. } | Trees::Compacting { .. } => {
+                panic!("already compacting");
+            }
+        }
     }
 
     async fn move_trees_for_end_compaction(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
         // Move compacted to trash
         // Move compacted_wip to compacted
-        todo!()
+        match &**trees {
+            Trees::InitialCompacting { active, compacting, compacted_wip } => {
+                todo!()
+            },
+            Trees::Compacting { active, compacting, compacted, compacted_wip, trash } => {
+                todo!()
+            },
+            Trees::Initial { .. } | Trees::Normal { .. } => {
+                panic!("not compacting");
+            }
+        }
     }
 
     async fn wait_for_all_writes_to_compacting_tree(&self) -> Result<Commit> {
