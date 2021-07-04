@@ -1,3 +1,44 @@
+//! A tree that can be compacted.
+//!
+//! Each `CompactingTree` contains several `Tree` values:
+//!
+//! * active
+//!
+//!   The tree that future write batches will write to
+//!
+//!   This is the first tree searched for reads.
+//!
+//! * compacting
+//!
+//!   The tree that is being compacted.
+//!   There may be outstanding write batches or read views
+//!   attached to this at the time compaction is requested.
+//!   Compaction will not actually begin until all batches
+//!   against it are closed, making the tree "done".
+//!
+//!   This is the second tree searched for reads.
+//!
+//! * compacted
+//!
+//!   This is the previously compacted state of the tree.
+//!   It contains a single commit and is immutable.
+//!
+//!   This is the third and last tree search for reads.
+//!
+//! * compacted_wip
+//!
+//!   This is the compacted log currently being produced
+//!   from the `compacting` log.
+//!
+//!   It is not searched for reads.
+//!
+//! * trash
+//!
+//!   These are trees with outstanding read views at
+//!   the time a compaction finished.
+//!
+//!   They are waiting to be deleted.
+
 use anyhow::Result;
 use async_channel::{self, Sender, Receiver};
 use std::sync::{RwLock, Mutex, Arc, RwLockWriteGuard};
@@ -13,34 +54,27 @@ pub struct CompactingTree {
     compact_state: Arc<Mutex<CompactState>>,
 }
 
-struct Trees {
-    /// The tree that future write batches will write to
-    ///
-    /// This is the first tree searched for reads.
-    active: Option<Tree>,
-    /// The tree that is being compacted.
-    /// There may be outstanding write batches or read views
-    /// attached to this at the time compaction is requested.
-    /// Compaction will not actually begin until all batches
-    /// against it are closed, making the tree "done".
-    ///
-    /// This is the second tree searched for reads.
-    compacting: Option<Tree>,
-    /// This is the previously compacted state of the tree.
-    /// It contains a single commit and is immutable.
-    ///
-    /// This is the third and last tree search for reads.
-    compacted: Option<Tree>,
-    /// This is the compacted log currently being produced
-    /// from the `compacting` log.
-    ///
-    /// It is not searched for reads.
-    compacted_wip: Option<Tree>,
-    /// These are trees with outstanding read views at
-    /// the time a compaction finished.
-    ///
-    /// They are waiting to be deleted.
-    trash: Vec<Tree>,
+enum Trees {
+    Initial {
+        active: Tree,
+    },
+    InitialCompacting {
+        active: Tree,
+        compacting: Tree,
+        compacted_wip: Tree,
+    },
+    Normal {
+        active: Tree,
+        compacted: Tree,
+        trash: Vec<Tree>,
+    },
+    Compacting {
+        active: Tree,
+        compacting: Tree,
+        compacted: Tree,
+        compacted_wip: Tree,
+        trash: Vec<Tree>,
+    }
 }
 
 enum CompactState {
@@ -89,13 +123,8 @@ impl CompactingTree {
             {
                 let mut trees = self.trees.write().expect("lock");
 
-                assert!(trees.compacting.is_none());
-                assert!(trees.compacted_wip.is_none());
-
                 // FIXME holding lock across await
-                self.move_active_tree_to_compacting(&mut trees).await?;
-                // FIXME if this fails the trees will be inconsistent
-                self.create_compacted_wip_tree(&mut trees).await?;
+                self.move_trees_for_compaction(&mut trees).await?;
 
                 drop(trees);
             }
@@ -108,14 +137,30 @@ impl CompactingTree {
                 let commit_limit = Commit(last_commit.0.checked_add(1).expect("overflow"));
 
                 let trees = self.trees.read().expect("lock");
-                let compacting_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
-                let compacted_cursor = trees.compacting.as_ref().expect("tree").cursor(commit_limit);
-                let compacted_wip_writer = trees.compacted_wip.as_ref().expect("tree").batch(COMPACTED_BATCH_NUM);
+                let (tree_cursors, compacted_wip_writer) = match &*trees {
+                    Trees::InitialCompacting { active, compacting, compacted_wip } => {
+                        drop(active);
+                        let compacting_cursor = compacting.cursor(commit_limit);
+                        let compacted_wip_writer = compacted_wip.batch(COMPACTED_BATCH_NUM);
+                        (vec![compacting_cursor], compacted_wip_writer)
+                    },
+                    Trees::Compacting { active, compacting, compacted, compacted_wip, trash } => {
+                        drop(active);
+                        drop(trash);
+                        let compacting_cursor = compacting.cursor(commit_limit);
+                        let compacted_cursor = compacted.cursor(commit_limit);
+                        let compacted_wip_writer = compacted_wip.batch(COMPACTED_BATCH_NUM);
+                        (vec![compacting_cursor, compacted_cursor], compacted_wip_writer)
+                    },
+                    _ => {
+                        panic!("invalid state during compaction");
+                    }
+                };
 
                 drop(trees);
 
                 let cursor = Cursor {
-                    trees: vec![compacting_cursor, compacted_cursor],
+                    trees: tree_cursors,
                     current: None,
                 };
 
@@ -148,13 +193,8 @@ impl CompactingTree {
                 Ok(_) => {
                     let mut trees = self.trees.write().expect("lock");
 
-                    assert!(trees.compacting.is_some());
-                    assert!(trees.compacted_wip.is_some());
-
                     // FIXME holding lock across await
-                    self.move_compacted_tree_to_trash(&mut trees).await?;
-                    // FIXME if this fails the trees will be inconsistent
-                    self.move_compacted_wip_tree_to_compacted(&mut trees).await?;
+                    self.move_trees_for_end_compaction(&mut trees).await?;
                 }
                 Err(e) => {
                     todo!()
@@ -176,19 +216,15 @@ impl CompactingTree {
         end_compaction_result
     }
 
-    async fn move_active_tree_to_compacting(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+    async fn move_trees_for_compaction(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+        // Move active to compacting
+        // Create compacted_wip
         todo!()
     }
 
-    async fn create_compacted_wip_tree(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
-        todo!()
-    }
-
-    async fn move_compacted_tree_to_trash(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
-        todo!()
-    }
-
-    async fn move_compacted_wip_tree_to_compacted(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+    async fn move_trees_for_end_compaction(&self, trees: &mut RwLockWriteGuard<'_, Trees>) -> Result<()> {
+        // Move compacted to trash
+        // Move compacted_wip to compacted
         todo!()
     }
 
