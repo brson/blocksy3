@@ -32,7 +32,7 @@ for demonstrating concurrent and parallel Rust programming.
 - Consistent read views and cursors ("snapshots")
 - Atomically-committed write batches
   - With save points, rollbacks, and multiple commits
-- On-disk on in-memory storage
+- On-disk or in-memory storage
 
 ## WIP
 
