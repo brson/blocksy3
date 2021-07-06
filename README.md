@@ -19,10 +19,6 @@ With its simplicity though,
 it may eventually serve as a useful learning resource
 for demonstrating concurrent and parallel Rust programming.
 
-Today it does nothing &mdash;
-it is not complete,
-documented or tested.
-
 [RocksDB]: https://github.com/facebook/rocksdb
 [TiKV]: https://github.com/tikv/tikv
 
