@@ -257,6 +257,24 @@ impl CompactingTree {
     }
 }
 
+impl CompactingTree {
+    pub fn batch(&self, batch: Batch) -> BatchWriter {
+        todo!()
+    }
+
+    pub async fn read(&self, commit_limit: Commit, key: &Key) -> Result<Option<Value>> {
+        todo!()
+    }
+
+    pub fn cursor(&self, commit_limit: Commit) -> Cursor {
+        todo!()
+    }
+
+    pub fn sync(&self) -> Result<()> {
+        todo!()
+    }
+}
+
 impl Cursor {
     pub fn valid(&self) -> bool {
         self.current.is_some()
