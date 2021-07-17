@@ -2,18 +2,29 @@ use crate::pretty as imp;
 
 pub use anyhow::{self, Result};
 
+/// Configuration for a database.
 pub type DbConfig = imp::DbConfig;
 
+/// A key-value data store with
+/// multiple trees,
+/// batch commits,
+/// and consistent snapshots.
 #[derive(Clone, Debug)]
 pub struct Db(imp::Db);
 
+/// An atomically-committed series of writes.
 pub struct WriteBatch(imp::WriteBatch);
 
+/// A consistent view of the database.
 #[derive(Clone, Debug)]
 pub struct ReadView(imp::ReadView);
+
+/// A write handle to a single tree in a `WriteBatch`.
 pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
+/// A read handle to a single tree in a `ReadView`.
 pub struct ReadTree<'view>(imp::ReadTree<'view>);
 
+/// A cursor over the keys and values of a `ReadTree`.
 pub struct Cursor(imp::Cursor);
 
 impl Db {
