@@ -1,8 +1,6 @@
 #![allow(unused)]
 
-pub use anyhow;
-
-pub use facade::*;
+pub use doc::*;
 
 pub mod raw {
     pub mod fs_thread {
@@ -22,15 +20,17 @@ pub mod raw {
     }
 }
 
+mod doc;
+mod facade;
+mod imp;
+
 mod basic_db;
 mod batch_player;
 mod command;
 mod commit_log;
 mod compacting_tree;
-mod facade;
 mod frame;
 mod fs_thread;
-mod imp;
 mod index;
 mod loader;
 mod log;
