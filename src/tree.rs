@@ -7,7 +7,7 @@ use crate::types::{Batch, BatchCommit, Commit, Key, Value, Address};
 use crate::command::Command;
 use crate::log::Log;
 use crate::batch_player::{BatchPlayer, IndexOp};
-use crate::index::{self, Index, BatchIdx};
+use crate::index::{self, Index};
 use anyhow::{Result, anyhow, bail};
 use futures::{Stream, StreamExt};
 
@@ -466,17 +466,16 @@ fn commit_to_index(batch_player: &BatchPlayer,
                    commit: Commit) {
     let index_ops = batch_player.replay(batch, batch_commit);
     let mut writer = index.writer(commit);
-    for (idx, op) in index_ops.enumerate() {
-        let idx = BatchIdx(u32::try_from(idx).expect("u32"));
+    for op in index_ops {
         match op {
             IndexOp::Write { key, address } => {
-                writer.write(key, address, idx);
+                writer.write(key, address);
             },
             IndexOp::Delete { key, address } => {
-                writer.delete(key, address, idx);
+                writer.delete(key, address);
             },
             IndexOp::DeleteRange { start_key, end_key, address } => {
-                writer.delete_range(start_key..end_key, address, idx);
+                writer.delete_range(start_key..end_key, address);
             },
         }
     }

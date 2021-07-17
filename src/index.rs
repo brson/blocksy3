@@ -8,11 +8,6 @@ use std::collections::btree_map::{BTreeMap, Entry};
 use std::ops::Range;
 use crate::types::{Key, Address, Commit};
 
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Debug)]
-#[derive(Copy, Clone)]
-pub struct BatchIdx(pub u32);
-
 pub struct Index {
     maybe_next_commit: AtomicU64,
     state: Arc<PlRwLock<IndexState>>,
@@ -31,6 +26,11 @@ struct Node {
     history: RwLock<Vec<(Commit, ReadValue, BatchIdx)>>,
 }
 
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug)]
+#[derive(Copy, Clone)]
+struct BatchIdx(pub u32);
+
 pub struct Cursor {
     commit_limit: Commit,
     current: Option<(Arc<Node>, Address)>,
@@ -41,6 +41,7 @@ pub struct Writer<'index> {
     commit: Commit,
     maybe_next_commit: &'index AtomicU64,
     state: PlRwLockWriteGuard<'index, IndexState>,
+    batch_index: BatchIdx,
 }
 
 #[derive(Copy, Clone)]
@@ -82,6 +83,7 @@ impl Index {
             commit: commit,
             maybe_next_commit: &self.maybe_next_commit,
             state: self.state.write(),
+            batch_index: BatchIdx(0),
         }
     }
 }
@@ -262,16 +264,19 @@ impl Cursor {
 }
 
 impl<'index> Writer<'index> {
-    pub fn write(&mut self, key: Key, addr: Address, batch_idx: BatchIdx) {
+    pub fn write(&mut self, key: Key, addr: Address) {
+        let batch_idx = self.next_batch_index();
         self.update_value(key, ReadValue::Written(addr), batch_idx)
     }
 
-    pub fn delete(&mut self, key: Key, addr: Address, batch_idx: BatchIdx) {
+    pub fn delete(&mut self, key: Key, addr: Address) {
+        let batch_idx = self.next_batch_index();
         self.update_value(key, ReadValue::Deleted(addr), batch_idx)
     }
 
-    pub fn delete_range(&mut self, range: Range<Key>, addr: Address, batch_idx: BatchIdx)
+    pub fn delete_range(&mut self, range: Range<Key>, addr: Address)
     {
+        let batch_idx = self.next_batch_index();
         assert!(range.start <= range.end);
         self.state.range_deletes.push((self.commit, range, batch_idx));
     }
@@ -327,6 +332,12 @@ impl<'index> Writer<'index> {
         if let Some(new_node) = new_node {
             self.state.keymap.insert(key, new_node);
         }
+    }
+
+    fn next_batch_index(&mut self) -> BatchIdx {
+        let idx = self.batch_index;
+        self.batch_index.0 = self.batch_index.0.checked_add(1).expect("overflow");
+        idx
     }
 }
 
