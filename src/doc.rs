@@ -12,15 +12,16 @@ pub type DbConfig = imp::DbConfig;
 #[derive(Clone, Debug)]
 pub struct Db(imp::Db);
 
-/// An atomically-committed series of writes.
+/// An atomically-committed series of write commands.
 pub struct WriteBatch(imp::WriteBatch);
+
+/// A write handle to a single tree in a `WriteBatch`.
+pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
 
 /// A consistent view of the database.
 #[derive(Clone, Debug)]
 pub struct ReadView(imp::ReadView);
 
-/// A write handle to a single tree in a `WriteBatch`.
-pub struct WriteTree<'batch>(imp::WriteTree<'batch>);
 /// A read handle to a single tree in a `ReadView`.
 pub struct ReadTree<'view>(imp::ReadTree<'view>);
 
@@ -28,14 +29,23 @@ pub struct ReadTree<'view>(imp::ReadTree<'view>);
 pub struct Cursor(imp::Cursor);
 
 impl Db {
+    /// Open a new or existing database.
     pub async fn open(config: DbConfig) -> Result<Db> { imp::Db::open(config).await.map(Db) }
+
+    /// Create a write batch ([`WriteBatch`]).
     pub async fn write_batch(&self) -> Result<WriteBatch> { Ok(WriteBatch(self.0.write_batch().await?)) }
+
+    /// Create a read view ([`ReadView`]).
     pub fn read_view(&self) -> ReadView { ReadView(self.0.read_view()) }
+
+    /// Sync file system to disk.
     pub async fn sync(&self) -> Result<()> { self.0.sync().await }
 }
 
 impl WriteBatch {
+    /// Get a write handle to a single tree ([`WriteTree`]).
     pub fn tree<'batch>(&'batch self, tree: &str) -> WriteTree<'batch> { WriteTree(self.0.tree(tree)) }
+
     pub async fn push_save_point(&self) -> Result<()> { self.0.push_save_point().await }
     pub async fn pop_save_point(&self) -> Result<()> { self.0.pop_save_point().await }
     pub async fn rollback_save_point(&self) -> Result<()> { self.0.rollback_save_point().await }
@@ -45,6 +55,7 @@ impl WriteBatch {
 }
 
 impl ReadView {
+    /// Get a read handle to a single tree ([`ReadTree`]).
     pub fn tree<'view>(&'view self, tree: &str) -> ReadTree<'view> { ReadTree(self.0.tree(tree)) }
 }
 
