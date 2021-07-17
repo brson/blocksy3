@@ -182,7 +182,7 @@ impl BatchWriter {
 
     pub async fn commit(&self, batch_commit: BatchCommit) -> Result<()> {
         // Next steps are under the commit lock in order
-        // to keep commits numbers stored monotonically
+        // to keep commit numbers stored monotonically
         let commit_lock = self.commit_lock.lock().expect("lock");
 
         // Take a new commit number
@@ -190,7 +190,9 @@ impl BatchWriter {
         assert_ne!(commit.0, u64::max_value());
 
         // Write the master commit.
-        // If this fails then the commit is effectively aborted.
+        // This is the only source of failure in the commit method,
+        // and if this fails then the commit is effectively aborted;
+        // if this succeeds then the remaining commit process must succeed.
         self.write_commit(&commit_lock, batch_commit, commit).await?;
 
         // Infallably promote each tree's writes to its index.
