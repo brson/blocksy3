@@ -25,20 +25,25 @@ mod pretty;
 mod imp;
 
 mod basic_db;
-mod batch_player;
+
 mod command;
-mod commit_log;
-mod compacting_tree;
-mod frame;
-mod fs_thread;
+mod types;
+
+mod tree;
 mod index;
-mod loader;
 mod log;
+mod batch_player;
+
 mod log_file;
 mod mem_log_file;
 mod simple_log_file;
-mod tree;
-mod types;
+
+mod commit_log;
+mod frame;
+mod fs_thread;
+mod loader;
+
+mod compacting_tree;
 
 // A testing script language
 pub mod cmdscript;
