@@ -1,3 +1,5 @@
+//! A key-value data store.
+
 #![allow(unused)]
 
 // The public API of this crate is reexported here
@@ -48,10 +50,12 @@ mod loader;
 /// A tree that compacts other trees.
 mod compacting_tree;
 
-/// A testing script language
+/// A simple script language for exercising the database.
+#[doc(hidden)]
 pub mod cmdscript;
 
 /// Public access to building blocks
+#[doc(hidden)]
 pub mod raw {
     pub mod fs_thread {
         pub use crate::fs_thread::*;
