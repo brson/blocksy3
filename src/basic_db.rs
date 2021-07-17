@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use futures::lock::{Mutex, MutexGuard};
 use std::sync::Arc;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -183,7 +183,7 @@ impl BatchWriter {
     pub async fn commit(&self, batch_commit: BatchCommit) -> Result<()> {
         // Next steps are under the commit lock in order
         // to keep commit numbers stored monotonically
-        let commit_lock = self.commit_lock.lock().expect("lock");
+        let commit_lock = self.commit_lock.lock().await;
 
         // Take a new commit number
         let commit = Commit(self.next_commit.fetch_add(1, Ordering::SeqCst));
