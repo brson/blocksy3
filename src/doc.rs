@@ -1,6 +1,6 @@
 use crate::pretty as imp;
 
-pub use crate::pretty::{anyhow, Result};
+pub use anyhow::{self, Result};
 
 pub type DbConfig = imp::DbConfig;
 
