@@ -8,9 +8,10 @@ use std::collections::btree_map::{BTreeMap, Entry};
 use std::ops::Range;
 use crate::types::{Key, Address, Commit};
 
+/// An index from keys to addresses in a log.
 pub struct Index {
-    maybe_next_commit: AtomicU64,
     state: Arc<PlRwLock<IndexState>>,
+    maybe_next_commit: AtomicU64,
 }
 
 struct IndexState {
@@ -54,11 +55,11 @@ pub enum ReadValue {
 impl Index {
     pub fn new() -> Index {
         Index {
-            maybe_next_commit: AtomicU64::new(0),
             state: Arc::new(PlRwLock::new(IndexState {
                 keymap: BTreeMap::new(),
                 range_deletes: Vec::new(),
             })),
+            maybe_next_commit: AtomicU64::new(0),
         }
     }
 
