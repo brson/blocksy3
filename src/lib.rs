@@ -21,7 +21,7 @@ pub mod raw {
 }
 
 mod doc;
-mod facade;
+mod pretty;
 mod imp;
 
 mod basic_db;

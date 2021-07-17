@@ -1,6 +1,6 @@
-pub use crate::facade::Result;
+use crate::pretty as imp;
 
-use crate::facade as imp;
+pub use crate::pretty::{anyhow, Result};
 
 pub type DbConfig = imp::DbConfig;
 
