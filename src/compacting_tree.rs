@@ -204,7 +204,9 @@ impl CompactingTree {
             Ok(true)
         }.await;
 
-        // FIXME how to recover if end_compaction_result is an error?
+        if let Err(e) = end_compaction_result {
+            todo!()
+        }
 
         {
             let mut compact_state = self.compact_state.lock().expect("lock");
