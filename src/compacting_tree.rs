@@ -39,6 +39,9 @@
 //!
 //!   They are waiting to be deleted.
 
+// stylistic choice of explicit drops in this file
+#![allow(dropping_references)]
+
 use anyhow::Result;
 use async_channel::{self, Sender, Receiver};
 use std::sync::{RwLock, Mutex, Arc, RwLockWriteGuard};
